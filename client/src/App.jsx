@@ -1,14 +1,14 @@
-import VideoPlayer from "./VideoPlayer.jsx";
-import Login from "./Login.jsx";
+import { Routes, Route } from "react-router-dom";
+
+import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
 
 function App() {
   return (
-
-    <>
-    <Login/>
-
-    <VideoPlayer videoId="6aa2ed11f8f72b204bca57e3" />
-    </>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+    </Routes>
   );
 }
 
