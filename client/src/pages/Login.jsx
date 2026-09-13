@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 import AuthVisualPanel from "../components/login/AuthVisualPanel.jsx";
-import LoginForm from "../components/login/LoginForm.js";
+import LoginForm from "../components/login/LoginForm.jsx";
 
 const Login = () => {
   return (
