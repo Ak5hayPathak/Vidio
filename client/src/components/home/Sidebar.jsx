@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 function Sidebar() {
   return (
@@ -17,104 +17,120 @@ function Sidebar() {
   "
     >
       <nav className="space-y-1 p-4">
-        <Link
+        <NavLink
           to="/"
-          className="
-    flex
-    items-center
-    gap-4
-    rounded-xl
-    bg-red-600/10
-    px-4
-    py-3
-    text-gray-300
-    font-semibold
-    text-red-500
-  "
+          end
+          className={({ isActive }) =>
+            `
+      flex
+      items-center
+      gap-4
+      rounded-xl
+      px-4
+      py-3
+      text-gray-300
+      font-semibold
+      transition
+      hover:bg-white/5
+      ${isActive ? "bg-red-600/10 text-red-500" : ""}
+    `
+          }
         >
           <span>⌂</span>
           Home
-        </Link>
+        </NavLink>
 
-        <Link
+        <NavLink
           to="/subscriptions"
-          className="
-            flex
-            items-center
-            gap-4
-            rounded-xl
-            px-4
-            py-3
-            text-gray-300
-            transition
-            hover:bg-white/5
-          "
+          className={({ isActive }) =>
+            `
+      flex
+      items-center
+      gap-4
+      rounded-xl
+      px-4
+      py-3
+      text-gray-300
+      transition
+      hover:bg-white/5
+      ${isActive ? "bg-red-600/10 text-red-500" : ""}
+    `
+          }
         >
           <span>▣</span>
           Subscriptions
-        </Link>
+        </NavLink>
 
-        <Link
+        <NavLink
           to="/history"
-          className="
-            flex
-            items-center
-            gap-4
-            rounded-xl
-            px-4
-            py-3
-            text-gray-300
-            transition
-            hover:bg-white/5
-          "
+          className={({ isActive }) =>
+            `
+      flex
+      items-center
+      gap-4
+      rounded-xl
+      px-4
+      py-3
+      text-gray-300
+      transition
+      hover:bg-white/5
+      ${isActive ? "bg-red-600/10 text-red-500" : ""}
+    `
+          }
         >
           <span>◷</span>
           History
-        </Link>
+        </NavLink>
 
-        <Link
+        <NavLink
           to="/watch-later"
-          className="
-            flex
-            items-center
-            gap-4
-            rounded-xl
-            px-4
-            py-3
-            text-gray-300
-            transition
-            hover:bg-white/5
-          "
+          className={({ isActive }) =>
+            `
+      flex
+      items-center
+      gap-4
+      rounded-xl
+      px-4
+      py-3
+      text-gray-300
+      transition
+      hover:bg-white/5
+      ${isActive ? "bg-red-600/10 text-red-500" : ""}
+    `
+          }
         >
           <span>♡</span>
           Watch Later
-        </Link>
+        </NavLink>
 
-        <Link
+        <NavLink
           to="/playlists"
-          className="
-            flex
-            items-center
-            gap-4
-            rounded-xl
-            px-4
-            py-3
-            text-gray-300
-            transition
-            hover:bg-white/5
-          "
+          className={({ isActive }) =>
+            `
+      flex
+      items-center
+      gap-4
+      rounded-xl
+      px-4
+      py-3
+      text-gray-300
+      transition
+      hover:bg-white/5
+      ${isActive ? "bg-red-600/10 text-red-500" : ""}
+    `
+          }
         >
           <span>☷</span>
           Playlists
-        </Link>
+        </NavLink>
 
-        <div className="my-5 border-t border-gray-200" />
+        {/* <div className="my-5 border-t border-gray-200" /> */}
 
-        <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+        {/* <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
           Explore
         </p>
 
-        <Link
+        <NavLink
           to="/trending"
           className="
             flex
@@ -130,9 +146,9 @@ function Sidebar() {
         >
           <span>↗</span>
           Trending
-        </Link>
+        </NavLink>
 
-        <Link
+        <NavLink
           to="/music"
           className="
             flex
@@ -148,9 +164,9 @@ function Sidebar() {
         >
           <span>♫</span>
           Music
-        </Link>
+        </NavLink>
 
-        <Link
+        <NavLink
           to="/gaming"
           className="
             flex
@@ -166,9 +182,9 @@ function Sidebar() {
         >
           <span>◈</span>
           Gaming
-        </Link>
+        </NavLink>
 
-        <Link
+        <NavLink
           to="/programming"
           className="
             flex
@@ -184,7 +200,7 @@ function Sidebar() {
         >
           <span>&lt;/&gt;</span>
           Programming
-        </Link>
+        </NavLink> */}
       </nav>
     </aside>
   );
