@@ -17,6 +17,10 @@ function Sidebar() {
   "
     >
       <nav className="space-y-1 p-4">
+        <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+          You
+        </p>
+
         <NavLink
           to="/"
           end
@@ -83,6 +87,54 @@ function Sidebar() {
         </NavLink>
 
         <NavLink
+          to="/channel"
+          className={({ isActive }) =>
+            `
+      flex
+      items-center
+      gap-4
+      rounded-xl
+      px-4
+      py-3
+      text-gray-300
+      transition
+      hover:bg-white/5
+      ${isActive ? "bg-red-600/10 text-red-500" : ""}
+    `
+          }
+        >
+          <span>◉</span>
+          Your Channel
+        </NavLink>
+
+        <div className="my-3 border-t border-white/10" />
+
+        <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+          Videos
+        </p>
+
+        <NavLink
+          to="/liked-videos"
+          className={({ isActive }) =>
+            `
+      flex
+      items-center
+      gap-4
+      rounded-xl
+      px-4
+      py-3
+      text-gray-300
+      transition
+      hover:bg-white/5
+      ${isActive ? "bg-red-600/10 text-red-500" : ""}
+    `
+          }
+        >
+          <span>♡</span>
+          Liked Videos
+        </NavLink>
+
+        <NavLink
           to="/watch-later"
           className={({ isActive }) =>
             `
@@ -102,6 +154,12 @@ function Sidebar() {
           <span>♡</span>
           Watch Later
         </NavLink>
+
+        <div className="my-3 border-t border-white/10" />
+
+        <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+          Playlists
+        </p>
 
         <NavLink
           to="/playlists"

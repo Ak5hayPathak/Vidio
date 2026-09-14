@@ -8,6 +8,8 @@ import WatchLater from "./pages/WatchLater.jsx";
 import History from "./pages/History.jsx";
 import Playlists from "./pages/Playlist.jsx";
 import Collab from "./pages/Collab.jsx";
+import LikedVideos from "./pages/LikedVideos.jsx";
+import Channel from "./pages/Channel.jsx";
 
 function App() {
   return (
@@ -21,6 +23,8 @@ function App() {
       <Route path="/watch-later" element={<WatchLater />} />
       <Route path="/playlists" element={<Playlists />} />
       <Route path="/collab" element={<Collab />} />
+      <Route path="/liked-videos" element={<LikedVideos />} />
+      <Route path="/channel" element={<Channel />} />
     </Routes>
   );
 }
