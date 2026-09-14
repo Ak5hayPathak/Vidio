@@ -124,6 +124,27 @@ function Sidebar() {
           Playlists
         </NavLink>
 
+        <NavLink
+          to="/collab"
+          className={({ isActive }) =>
+            `
+      flex
+      items-center
+      gap-4
+      rounded-xl
+      px-4
+      py-3
+      text-gray-300
+      transition
+      hover:bg-white/5
+      ${isActive ? "bg-red-600/10 text-red-500" : ""}
+    `
+          }
+        >
+          <span>👥</span>
+          Collab
+        </NavLink>
+
         {/* <div className="my-5 border-t border-gray-200" /> */}
 
         {/* <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
