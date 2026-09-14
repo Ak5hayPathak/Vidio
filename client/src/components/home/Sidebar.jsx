@@ -1,285 +1,166 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 
 function Sidebar() {
+  const [collapsed, setCollapsed] = useState(false);
+
+  const navLinkClass = ({ isActive }) =>
+    `
+      flex
+      items-center
+      ${collapsed ? "justify-center" : "gap-4"}
+      rounded-xl
+      px-4
+      py-3
+      text-gray-300
+      transition
+      hover:bg-white/5
+      ${isActive ? "bg-red-600/10 text-red-500" : ""}
+    `;
+
   return (
     <aside
-      className="
-    sticky
-    top-16
-    hidden
-    h-[calc(100vh-4rem)]
-    w-60
-    shrink-0
-    border-r
-    border-white/10
-    bg-[#08090b]
-    lg:block
-  "
+      className={`
+        sticky
+        top-16
+        hidden
+        h-[calc(100vh-4rem)]
+        shrink-0
+        border-r
+        border-white/10
+        bg-[#08090b]
+        transition-all
+        duration-300
+        lg:block
+        ${collapsed ? "w-20" : "w-60"}
+      `}
     >
-      <nav className="space-y-1 p-4">
-        <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-          You
-        </p>
-
-        <NavLink
-          to="/"
-          end
-          className={({ isActive }) =>
-            `
-      flex
-      items-center
-      gap-4
-      rounded-xl
-      px-4
-      py-3
-      text-gray-300
-      font-semibold
-      transition
-      hover:bg-white/5
-      ${isActive ? "bg-red-600/10 text-red-500" : ""}
-    `
-          }
+      <nav className="p-4">
+        {/* Collapse Button */}
+        <div
+          className={`
+            mb-4
+            flex
+            ${collapsed ? "justify-center" : "justify-end"}
+          `}
         >
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="
+              flex
+              h-9
+              w-9
+              items-center
+              justify-center
+              rounded-lg
+              text-gray-400
+              transition
+              hover:bg-white/10
+              hover:text-white
+            "
+            title={collapsed ? "Open sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? "→" : "←"}
+          </button>
+        </div>
+
+        {/* You */}
+        {!collapsed && (
+          <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            You
+          </p>
+        )}
+
+        {/* Home */}
+        <NavLink to="/" end className={navLinkClass} title="Home">
           <span>⌂</span>
-          Home
+
+          {!collapsed && <span>Home</span>}
         </NavLink>
 
+        {/* Your Channel */}
+        <NavLink to="/channel" className={navLinkClass} title="Your Channel">
+          <span>◉</span>
+
+          {!collapsed && <span>Your Channel</span>}
+        </NavLink>
+
+        {/* Subscriptions */}
         <NavLink
           to="/subscriptions"
-          className={({ isActive }) =>
-            `
-      flex
-      items-center
-      gap-4
-      rounded-xl
-      px-4
-      py-3
-      text-gray-300
-      transition
-      hover:bg-white/5
-      ${isActive ? "bg-red-600/10 text-red-500" : ""}
-    `
-          }
+          className={navLinkClass}
+          title="Subscriptions"
         >
           <span>▣</span>
-          Subscriptions
+
+          {!collapsed && <span>Subscriptions</span>}
         </NavLink>
 
-        <NavLink
-          to="/history"
-          className={({ isActive }) =>
-            `
-      flex
-      items-center
-      gap-4
-      rounded-xl
-      px-4
-      py-3
-      text-gray-300
-      transition
-      hover:bg-white/5
-      ${isActive ? "bg-red-600/10 text-red-500" : ""}
-    `
-          }
-        >
+        {/* History */}
+        <NavLink to="/history" className={navLinkClass} title="History">
           <span>◷</span>
-          History
+
+          {!collapsed && <span>History</span>}
         </NavLink>
 
-        <NavLink
-          to="/channel"
-          className={({ isActive }) =>
-            `
-      flex
-      items-center
-      gap-4
-      rounded-xl
-      px-4
-      py-3
-      text-gray-300
-      transition
-      hover:bg-white/5
-      ${isActive ? "bg-red-600/10 text-red-500" : ""}
-    `
-          }
-        >
-          <span>◉</span>
-          Your Channel
-        </NavLink>
-
+        {/* Divider */}
         <div className="my-3 border-t border-white/10" />
 
-        <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-          Videos
-        </p>
+        {/* Videos */}
+        {!collapsed && (
+          <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            Videos
+          </p>
+        )}
 
+        {/* Liked Videos */}
         <NavLink
           to="/liked-videos"
-          className={({ isActive }) =>
-            `
-      flex
-      items-center
-      gap-4
-      rounded-xl
-      px-4
-      py-3
-      text-gray-300
-      transition
-      hover:bg-white/5
-      ${isActive ? "bg-red-600/10 text-red-500" : ""}
-    `
-          }
+          className={navLinkClass}
+          title="Liked Videos"
         >
           <span>♡</span>
-          Liked Videos
+
+          {!collapsed && <span>Liked Videos</span>}
         </NavLink>
 
-        <NavLink
-          to="/watch-later"
-          className={({ isActive }) =>
-            `
-      flex
-      items-center
-      gap-4
-      rounded-xl
-      px-4
-      py-3
-      text-gray-300
-      transition
-      hover:bg-white/5
-      ${isActive ? "bg-red-600/10 text-red-500" : ""}
-    `
-          }
-        >
+        {/* Watch Later */}
+        <NavLink to="/watch-later" className={navLinkClass} title="Watch Later">
           <span>♡</span>
-          Watch Later
+
+          {!collapsed && <span>Watch Later</span>}
         </NavLink>
 
+        {/* Your Videos */}
+        <NavLink to="/your-videos" className={navLinkClass} title="Your Videos">
+          <span>♡</span>
+
+          {!collapsed && <span>Your Videos</span>}
+        </NavLink>
+
+        {/* Divider */}
         <div className="my-3 border-t border-white/10" />
 
-        <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-          Playlists
-        </p>
+        {/* Playlists */}
+        {!collapsed && (
+          <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            Playlists
+          </p>
+        )}
 
-        <NavLink
-          to="/playlists"
-          className={({ isActive }) =>
-            `
-      flex
-      items-center
-      gap-4
-      rounded-xl
-      px-4
-      py-3
-      text-gray-300
-      transition
-      hover:bg-white/5
-      ${isActive ? "bg-red-600/10 text-red-500" : ""}
-    `
-          }
-        >
+        {/* Playlists */}
+        <NavLink to="/playlists" className={navLinkClass} title="Playlists">
           <span>☷</span>
-          Playlists
+
+          {!collapsed && <span>Playlists</span>}
         </NavLink>
 
-        <NavLink
-          to="/collab"
-          className={({ isActive }) =>
-            `
-      flex
-      items-center
-      gap-4
-      rounded-xl
-      px-4
-      py-3
-      text-gray-300
-      transition
-      hover:bg-white/5
-      ${isActive ? "bg-red-600/10 text-red-500" : ""}
-    `
-          }
-        >
+        {/* Collab */}
+        <NavLink to="/collab" className={navLinkClass} title="Collab">
           <span>👥</span>
-          Collab
+
+          {!collapsed && <span>Collab</span>}
         </NavLink>
-
-        {/* <div className="my-5 border-t border-gray-200" /> */}
-
-        {/* <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-          Explore
-        </p>
-
-        <NavLink
-          to="/trending"
-          className="
-            flex
-            items-center
-            gap-4
-            rounded-xl
-            px-4
-            py-3
-            text-gray-300
-            transition
-            hover:bg-white/5
-          "
-        >
-          <span>↗</span>
-          Trending
-        </NavLink>
-
-        <NavLink
-          to="/music"
-          className="
-            flex
-            items-center
-            gap-4
-            rounded-xl
-            px-4
-            py-3
-            text-gray-300
-            transition
-            hover:bg-white/5
-          "
-        >
-          <span>♫</span>
-          Music
-        </NavLink>
-
-        <NavLink
-          to="/gaming"
-          className="
-            flex
-            items-center
-            gap-4
-            rounded-xl
-            px-4
-            py-3
-            text-gray-300
-            transition
-            hover:bg-white/5
-          "
-        >
-          <span>◈</span>
-          Gaming
-        </NavLink>
-
-        <NavLink
-          to="/programming"
-          className="
-            flex
-            items-center
-            gap-4
-            rounded-xl
-            px-4
-            py-3
-            text-gray-300
-            transition
-            hover:bg-white/5
-          "
-        >
-          <span>&lt;/&gt;</span>
-          Programming
-        </NavLink> */}
       </nav>
     </aside>
   );

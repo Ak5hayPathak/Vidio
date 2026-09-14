@@ -10,6 +10,7 @@ import Playlists from "./pages/Playlist.jsx";
 import Collab from "./pages/Collab.jsx";
 import LikedVideos from "./pages/LikedVideos.jsx";
 import Channel from "./pages/Channel.jsx";
+import YourVideos from "./pages/YourVideos.jsx";
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
       <Route path="/collab" element={<Collab />} />
       <Route path="/liked-videos" element={<LikedVideos />} />
       <Route path="/channel" element={<Channel />} />
+      <Route path="/your-videos" element={<YourVideos/>} /> 
     </Routes>
   );
 }
