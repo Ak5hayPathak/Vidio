@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import Navbar from "../components/home/Navbar.jsx";
-import Sidebar from "../components/home/Sidebar.jsx";
+import Sidebar from "../components/sidebar/Sidebar.jsx";
 import VideoCard from "../components/home/VideoCard.jsx";
 
 const YourVideos = () => {

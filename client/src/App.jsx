@@ -2,7 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import { useState } from "react";
 
 import Navbar from "./components/home/Navbar.jsx";
-import Sidebar from "./components/home/Sidebar.jsx";
+import Sidebar from "./components/sidebar/Sidebar.jsx";
 
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";

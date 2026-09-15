@@ -1,26 +1,46 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
+import SidebarNavLink from "./SidebarNavLink.jsx";
 
 function Sidebar({ mobileOpen, setMobileOpen }) {
   const [collapsed, setCollapsed] = useState(false);
 
-  const navLinkClass = ({ isActive }) =>
-    `
-      flex
-      items-center
-      ${collapsed ? "justify-center" : "gap-4"}
-      rounded-xl
-      px-4
-      py-3
-      text-gray-300
-      transition
-      hover:bg-white/5
-      ${isActive ? "bg-red-600/10 text-red-500" : ""}
-    `;
-
   const handleNavClick = () => {
     setMobileOpen(false);
   };
+
+  const youLinks = [
+    { to: "/", icon: "⌂", label: "Home", end: true },
+    { to: "/channel", icon: "◉", label: "Your Channel" },
+    { to: "/subscriptions", icon: "▣", label: "Subscriptions" },
+    { to: "/history", icon: "◷", label: "History" },
+  ];
+
+  const videoLinks = [
+    { to: "/liked-videos", icon: "♡", label: "Liked Videos" },
+    { to: "/watch-later", icon: "♡", label: "Watch Later" },
+    { to: "/your-videos", icon: "♡", label: "Your Videos" },
+  ];
+
+  const playlistLinks = [
+    { to: "/playlists", icon: "☷", label: "Playlists" },
+    { to: "/collab", icon: "👥", label: "Collab" },
+  ];
+
+  const tweetLinks = [
+    { to: "/my-tweets", icon: "👥", label: "My Tweets" },
+    { to: "/liked-tweets", icon: "👥", label: "Liked Tweets" },
+  ];
+
+  const renderLinks = (links) =>
+    links.map((link) => (
+      <SidebarNavLink
+        key={link.to}
+        {...link}
+        collapsed={collapsed}
+        onClick={handleNavClick}
+      />
+    ));
 
   return (
     <>
@@ -73,19 +93,30 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
             scrollbar-thin-custom
           "
         >
-          {/* Mobile Close */}
+          {/* Mobile Header */}
           <div className="mb-4 flex justify-between lg:hidden">
             {/* Logo */}
-            <NavLink to="/" className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <NavLink
+              to="/"
+              className="flex shrink-0 items-center gap-2 sm:gap-3"
+            >
               <div className="flex h-7 w-9 items-center justify-center rounded-xl bg-[#CE2029]">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="white"
+                >
                   <path d="M8 5.14v13.72a1 1 0 0 0 1.53.85l10.18-6.86a1 1 0 0 0 0-1.66L9.53 4.29A1 1 0 0 0 8 5.14Z" />
                 </svg>
               </div>
 
-              <span className="text-xl font-bold text-white">Vidio</span>
+              <span className="text-xl font-bold text-white">
+                Vidio
+              </span>
             </NavLink>
 
+            {/* Close Button */}
             <button
               onClick={() => setMobileOpen(false)}
               className="
@@ -142,50 +173,7 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
             </p>
           )}
 
-          {/* Home */}
-          <NavLink
-            to="/"
-            end
-            className={navLinkClass}
-            title="Home"
-            onClick={handleNavClick}
-          >
-            <span>⌂</span>
-            {!collapsed && <span>Home</span>}
-          </NavLink>
-
-          {/* Your Channel */}
-          <NavLink
-            to="/channel"
-            className={navLinkClass}
-            title="Your Channel"
-            onClick={handleNavClick}
-          >
-            <span>◉</span>
-            {!collapsed && <span>Your Channel</span>}
-          </NavLink>
-
-          {/* Subscriptions */}
-          <NavLink
-            to="/subscriptions"
-            className={navLinkClass}
-            title="Subscriptions"
-            onClick={handleNavClick}
-          >
-            <span>▣</span>
-            {!collapsed && <span>Subscriptions</span>}
-          </NavLink>
-
-          {/* History */}
-          <NavLink
-            to="/history"
-            className={navLinkClass}
-            title="History"
-            onClick={handleNavClick}
-          >
-            <span>◷</span>
-            {!collapsed && <span>History</span>}
-          </NavLink>
+          {renderLinks(youLinks)}
 
           {/* Divider */}
           <div className="my-3 border-t border-white/10" />
@@ -197,38 +185,7 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
             </p>
           )}
 
-          {/* Liked Videos */}
-          <NavLink
-            to="/liked-videos"
-            className={navLinkClass}
-            title="Liked Videos"
-            onClick={handleNavClick}
-          >
-            <span>♡</span>
-            {!collapsed && <span>Liked Videos</span>}
-          </NavLink>
-
-          {/* Watch Later */}
-          <NavLink
-            to="/watch-later"
-            className={navLinkClass}
-            title="Watch Later"
-            onClick={handleNavClick}
-          >
-            <span>♡</span>
-            {!collapsed && <span>Watch Later</span>}
-          </NavLink>
-
-          {/* Your Videos */}
-          <NavLink
-            to="/your-videos"
-            className={navLinkClass}
-            title="Your Videos"
-            onClick={handleNavClick}
-          >
-            <span>♡</span>
-            {!collapsed && <span>Your Videos</span>}
-          </NavLink>
+          {renderLinks(videoLinks)}
 
           {/* Divider */}
           <div className="my-3 border-t border-white/10" />
@@ -240,27 +197,7 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
             </p>
           )}
 
-          {/* Playlists */}
-          <NavLink
-            to="/playlists"
-            className={navLinkClass}
-            title="Playlists"
-            onClick={handleNavClick}
-          >
-            <span>☷</span>
-            {!collapsed && <span>Playlists</span>}
-          </NavLink>
-
-          {/* Collab */}
-          <NavLink
-            to="/collab"
-            className={navLinkClass}
-            title="Collab"
-            onClick={handleNavClick}
-          >
-            <span>👥</span>
-            {!collapsed && <span>Collab</span>}
-          </NavLink>
+          {renderLinks(playlistLinks)}
 
           {/* Divider */}
           <div className="my-3 border-t border-white/10" />
@@ -272,26 +209,7 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
             </p>
           )}
 
-          <NavLink
-            to="/my-tweets"
-            className={navLinkClass}
-            title="my-tweets"
-            onClick={handleNavClick}
-          >
-            <span>👥</span>
-            {!collapsed && <span>My Tweets</span>}
-          </NavLink>
-
-          {/* Liked Tweets */}
-          <NavLink
-            to="/liked-tweets"
-            className={navLinkClass}
-            title="liked-tweets"
-            onClick={handleNavClick}
-          >
-            <span>👥</span>
-            {!collapsed && <span>Liked Tweets</span>}
-          </NavLink>
+          {renderLinks(tweetLinks)}
         </nav>
       </aside>
     </>
