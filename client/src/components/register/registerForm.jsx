@@ -64,7 +64,7 @@ const RegisterForm = () => {
       console.error(error);
 
       setError(
-        error.response?.data?.message ||
+        error.response?.data?.message||
           "Something went wrong while creating your account.",
       );
     } finally {
@@ -118,7 +118,6 @@ const RegisterForm = () => {
           </p>
         </div>
       ) : (
-
         /* Register form */
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Full Name */}
