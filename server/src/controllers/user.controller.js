@@ -91,7 +91,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const user = await User.create({
     fullName,
-    avatar: avatar.url,
+    avatar: avatar?.url || "",
     coverImage: coverImage?.url || "",
     email,
     password,
@@ -229,6 +229,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
 const verifyEmail = asyncHandler(async (req, res) => {
   const { token } = req.params;
+
+  // console.log("VERIFY EMAIL REQUEST:", req.params.token);
 
   if (!token) {
     throw new APIError(400, "Verification token is required");

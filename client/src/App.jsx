@@ -15,6 +15,7 @@ import Collab from "./pages/Collab.jsx";
 import LikedVideos from "./pages/LikedVideos.jsx";
 import Channel from "./pages/Channel.jsx";
 import YourVideos from "./pages/YourVideos.jsx";
+import VerifyEmail from "./pages/VerifyEmail.jsx";
 
 function AppLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -44,6 +45,7 @@ function App() {
         {/* Authentication routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
 
         {/* Application routes */}
         <Route element={<AppLayout />}>

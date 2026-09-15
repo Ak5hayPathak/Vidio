@@ -1,52 +1,128 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-import SocialLogin from "./SocialLogin.jsx";
 import AuthFooter from "./AuthFooter.jsx";
+import api from "../../services/api.js";
 
 const LoginForm = () => {
+  const navigate = useNavigate();
+
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const handleSubmit = (e) => {
+  const [formData, setFormData] = useState({
+    usernameOrEmail: "",
+    password: "",
+  });
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    setError("");
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Connect your login API here
-    console.log("Login submitted");
+    setError("");
+    setLoading(true);
+
+    const identifier = formData.usernameOrEmail.trim();
+
+    const isEmail = identifier.includes("@");
+
+    const loginData = {
+      [isEmail ? "email" : "username"]: identifier,
+      password: formData.password,
+    };
+
+    try {
+      const response = await api.post("/users/login", loginData);
+
+      console.log("Login successful:", response.data);
+
+      navigate("/");
+    } catch (error) {
+      console.error("Login failed:", error);
+
+      setError(
+        error.response?.data?.message ||
+          "Something went wrong while logging in.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="w-full max-w-md">
       {/* Heading */}
       <div className="mb-8">
-        <h2 className="text-3xl font-semibold tracking-tight">Welcome back</h2>
+        <h2 className="text-3xl font-semibold tracking-tight">
+          Welcome back
+        </h2>
 
         <p className="mt-2 text-gray-500">
           Sign in to your Vidio account to continue.
         </p>
       </div>
 
+      {/* Error message */}
+      {error && (
+        <div
+          className="
+            mb-5
+            rounded-xl
+            border
+            border-red-500/20
+            bg-red-500/10
+            px-4
+            py-3
+            text-sm
+            leading-5
+            text-red-400
+          "
+        >
+          {error}
+        </div>
+      )}
+
       {/* Login form */}
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Username / Email */}
+        {/* Username or Email */}
         <div>
           <label
-            htmlFor="identifier"
-            className="block text-sm font-medium text-gray-300 mb-2"
+            htmlFor="usernameOrEmail"
+            className="mb-2 block text-sm font-medium text-gray-300"
           >
             Username or email
           </label>
 
           <input
-            id="identifier"
+            id="usernameOrEmail"
+            name="usernameOrEmail"
             type="text"
+            value={formData.usernameOrEmail}
+            onChange={handleChange}
             placeholder="Enter your username or email"
             autoComplete="username"
+            required
             className="
-              w-full h-12 px-4
+              h-12
+              w-full
               rounded-xl
+              border
+              border-white/[0.08]
               bg-[#111317]
-              border border-white/[0.08]
+              px-4
               text-white
               placeholder:text-gray-600
               outline-none
@@ -55,13 +131,12 @@ const LoginForm = () => {
               focus:ring-2
               focus:ring-red-500/10
             "
-            required
           />
         </div>
 
         {/* Password */}
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-2 flex items-center justify-between">
             <label
               htmlFor="password"
               className="block text-sm font-medium text-gray-300"
@@ -71,7 +146,12 @@ const LoginForm = () => {
 
             <Link
               to="/forgot-password"
-              className="text-sm text-gray-500 hover:text-red-400 transition"
+              className="
+                text-sm
+                text-gray-500
+                transition
+                hover:text-red-400
+              "
             >
               Forgot password?
             </Link>
@@ -80,14 +160,22 @@ const LoginForm = () => {
           <div className="relative">
             <input
               id="password"
+              name="password"
               type={showPassword ? "text" : "password"}
+              value={formData.password}
+              onChange={handleChange}
               placeholder="Enter your password"
               autoComplete="current-password"
+              required
               className="
-                w-full h-12 px-4 pr-12
+                h-12
+                w-full
                 rounded-xl
+                border
+                border-white/[0.08]
                 bg-[#111317]
-                border border-white/[0.08]
+                px-4
+                pr-12
                 text-white
                 placeholder:text-gray-600
                 outline-none
@@ -96,18 +184,23 @@ const LoginForm = () => {
                 focus:ring-2
                 focus:ring-red-500/10
               "
-              required
             />
 
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
+              onClick={() => setShowPassword((prev) => !prev)}
               className="
-                absolute right-4 top-1/2 -translate-y-1/2
-                text-gray-500 hover:text-gray-300
+                absolute
+                right-4
+                top-1/2
+                -translate-y-1/2
+                text-gray-500
                 transition
+                hover:text-gray-300
               "
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={
+                showPassword ? "Hide password" : "Show password"
+              }
             >
               {showPassword ? (
                 <svg
@@ -142,34 +235,41 @@ const LoginForm = () => {
 
         {/* Remember me */}
         <div className="flex items-center">
-          <label className="flex items-center gap-3 cursor-pointer select-none">
+          <label className="flex cursor-pointer select-none items-center gap-3">
             <input
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="w-4 h-4 accent-red-600 cursor-pointer"
+              className="h-4 w-4 cursor-pointer accent-red-600"
             />
 
-            <span className="text-sm text-gray-500">Remember me</span>
+            <span className="text-sm text-gray-500">
+              Remember me
+            </span>
           </label>
         </div>
 
-        {/* Login button */}
+        {/* Submit button */}
         <button
           type="submit"
+          disabled={loading}
           className="
-            w-full h-12
+            h-12
+            w-full
             rounded-xl
             bg-red-600
+            font-medium
+            text-white
+            shadow-lg
+            shadow-red-600/10
+            transition
             hover:bg-red-500
             active:bg-red-700
-            text-white
-            font-medium
-            transition
-            shadow-lg shadow-red-600/10
+            disabled:cursor-not-allowed
+            disabled:opacity-60
           "
         >
-          Sign in
+          {loading ? "Signing in..." : "Sign in"}
         </button>
       </form>
 
