@@ -101,10 +101,10 @@ const videos = [
 function Subscriptions() {
   return (
     <div className="min-h-screen bg-[#08090b] text-white">
-      <Navbar />
+      
 
       <div className="flex">
-        <Sidebar />
+        
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
 
@@ -155,7 +155,7 @@ function Subscriptions() {
                   key={channel.id}
                   className="
                     flex
-                    min-w-[120px]
+                    min-w-30
                     shrink-0
                     cursor-pointer
                     flex-col

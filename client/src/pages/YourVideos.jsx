@@ -49,10 +49,10 @@ const YourVideos = () => {
 
   return (
     <div className="min-h-screen bg-[#08090b] text-white">
-      <Navbar />
+      
 
       <div className="flex">
-        <Sidebar />
+        
 
         <main className="min-w-0 flex-1 px-6 py-8 lg:px-10">
 

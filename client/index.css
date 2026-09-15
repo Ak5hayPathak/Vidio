@@ -13,3 +13,27 @@ body,
 body {
   overflow-x: hidden;
 }
+
+/* Thin sidebar scrollbar */
+.scrollbar-thin-custom::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-thin-custom::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin-custom::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+
+.scrollbar-thin-custom::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Firefox */
+.scrollbar-thin-custom {
+  scrollbar-width: thin;
+  scrollbar-color: #27272a transparent;
+}
