@@ -1,156 +1,247 @@
-
 import { useState } from "react";
-
-// import SocialLogin from "./SocialLogin.jsx";
-import AuthFooter from "../login/AuthFooter";
+import api from "../../services/api.js";
 
 const RegisterForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleSubmit = (e) => {
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    username: "",
+    password: "",
+    confirmPassword: "",
+    avatar: null,
+    coverImage: null,
+  });
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value, files } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: files ? files[0] : value,
+    }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Connect your register API here
-    console.log("Register submitted");
+    setError("");
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    const data = new FormData();
+
+    data.append("fullName", formData.fullName);
+    data.append("email", formData.email);
+    data.append("username", formData.username);
+    data.append("password", formData.password);
+
+    if (formData.avatar) {
+      data.append("avatar", formData.avatar);
+    }
+
+    if (formData.coverImage) {
+      data.append("coverImage", formData.coverImage);
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await api.post("/users/register", data);
+
+      console.log(response.data);
+    } catch (error) {
+      console.error(error);
+
+      setError(
+        error.response?.data?.message ||
+          "Something went wrong while creating your account."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const inputClass = `
+    w-full h-10 px-3
+    rounded-lg
+    bg-[#111317]
+    border border-white/[0.08]
+    text-white text-sm
+    placeholder:text-gray-600
+    outline-none
+    transition
+    focus:border-red-500/60
+    focus:ring-2
+    focus:ring-red-500/10
+  `;
+
+  const labelClass = `
+    block text-xs font-medium text-gray-300 mb-1
+  `;
 
   return (
     <div className="w-full max-w-md">
       {/* Heading */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-semibold tracking-tight">
+      <div className="mb-5">
+        <h2 className="text-2xl font-semibold tracking-tight">
           Create your account
         </h2>
 
-        <p className="mt-2 text-gray-500">
+        <p className="mt-1 text-sm text-gray-500">
           Join Vidio and start sharing your videos.
         </p>
       </div>
 
       {/* Register form */}
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-3">
         {/* Full Name */}
         <div>
-          <label
-            htmlFor="fullName"
-            className="block text-sm font-medium text-gray-300 mb-2"
-          >
-            Full name
+          <label htmlFor="fullName" className={labelClass}>
+            Full name <span className="text-red-500">*</span>
           </label>
 
           <input
             id="fullName"
+            name="fullName"
             type="text"
             placeholder="Enter your full name"
             autoComplete="name"
-            className="
-              w-full h-12 px-4
-              rounded-xl
-              bg-[#111317]
-              border border-white/[0.08]
-              text-white
-              placeholder:text-gray-600
-              outline-none
-              transition
-              focus:border-red-500/60
-              focus:ring-2
-              focus:ring-red-500/10
-            "
+            value={formData.fullName}
+            onChange={handleChange}
+            className={inputClass}
             required
           />
         </div>
 
         {/* Email */}
         <div>
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium text-gray-300 mb-2"
-          >
-            Email
+          <label htmlFor="email" className={labelClass}>
+            Email <span className="text-red-500">*</span>
           </label>
 
           <input
             id="email"
+            name="email"
             type="email"
             placeholder="Enter your email"
             autoComplete="email"
-            className="
-              w-full h-12 px-4
-              rounded-xl
-              bg-[#111317]
-              border border-white/[0.08]
-              text-white
-              placeholder:text-gray-600
-              outline-none
-              transition
-              focus:border-red-500/60
-              focus:ring-2
-              focus:ring-red-500/10
-            "
+            value={formData.email}
+            onChange={handleChange}
+            className={inputClass}
             required
           />
         </div>
 
         {/* Username */}
         <div>
-          <label
-            htmlFor="username"
-            className="block text-sm font-medium text-gray-300 mb-2"
-          >
-            Username
+          <label htmlFor="username" className={labelClass}>
+            Username <span className="text-red-500">*</span>
           </label>
 
           <input
             id="username"
+            name="username"
             type="text"
             placeholder="Choose a username"
             autoComplete="username"
-            className="
-              w-full h-12 px-4
-              rounded-xl
-              bg-[#111317]
-              border border-white/[0.08]
-              text-white
-              placeholder:text-gray-600
-              outline-none
-              transition
-              focus:border-red-500/60
-              focus:ring-2
-              focus:ring-red-500/10
-            "
+            value={formData.username}
+            onChange={handleChange}
+            className={inputClass}
             required
+          />
+        </div>
+
+        {/* Avatar */}
+        <div>
+          <label htmlFor="avatar" className={labelClass}>
+            Avatar{" "}
+            <span className="text-gray-500 font-normal">
+              (Optional)
+            </span>
+          </label>
+
+          <input
+            id="avatar"
+            name="avatar"
+            type="file"
+            accept="image/*"
+            onChange={handleChange}
+            className="
+              block w-full
+              text-xs text-gray-400
+              file:mr-3
+              file:py-1.5
+              file:px-3
+              file:rounded-lg
+              file:border-0
+              file:bg-red-600
+              file:text-white
+              file:text-xs
+              file:font-medium
+              hover:file:bg-red-500
+              cursor-pointer
+            "
+          />
+        </div>
+
+        {/* Cover Image */}
+        <div>
+          <label htmlFor="coverImage" className={labelClass}>
+            Cover image{" "}
+            <span className="text-gray-500 font-normal">
+              (Optional)
+            </span>
+          </label>
+
+          <input
+            id="coverImage"
+            name="coverImage"
+            type="file"
+            accept="image/*"
+            onChange={handleChange}
+            className="
+              block w-full
+              text-xs text-gray-400
+              file:mr-3
+              file:py-1.5
+              file:px-3
+              file:rounded-lg
+              file:border-0
+              file:bg-red-600
+              file:text-white
+              file:text-xs
+              file:font-medium
+              hover:file:bg-red-500
+              cursor-pointer
+            "
           />
         </div>
 
         {/* Password */}
         <div>
-          <label
-            htmlFor="password"
-            className="block text-sm font-medium text-gray-300 mb-2"
-          >
-            Password
+          <label htmlFor="password" className={labelClass}>
+            Password <span className="text-red-500">*</span>
           </label>
 
           <div className="relative">
             <input
               id="password"
+              name="password"
               type={showPassword ? "text" : "password"}
               placeholder="Create a password"
               autoComplete="new-password"
-              className="
-                w-full h-12 px-4 pr-12
-                rounded-xl
-                bg-[#111317]
-                border border-white/[0.08]
-                text-white
-                placeholder:text-gray-600
-                outline-none
-                transition
-                focus:border-red-500/60
-                focus:ring-2
-                focus:ring-red-500/10
-              "
+              value={formData.password}
+              onChange={handleChange}
+              className={`${inputClass} pr-11`}
               required
             />
 
@@ -158,16 +249,18 @@ const RegisterForm = () => {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="
-                absolute right-4 top-1/2 -translate-y-1/2
+                absolute right-3 top-1/2 -translate-y-1/2
                 text-gray-500 hover:text-gray-300
                 transition
               "
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={
+                showPassword ? "Hide password" : "Show password"
+              }
             >
               {showPassword ? (
                 <svg
-                  width="19"
-                  height="19"
+                  width="18"
+                  height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -180,8 +273,8 @@ const RegisterForm = () => {
                 </svg>
               ) : (
                 <svg
-                  width="19"
-                  height="19"
+                  width="18"
+                  height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -197,32 +290,20 @@ const RegisterForm = () => {
 
         {/* Confirm Password */}
         <div>
-          <label
-            htmlFor="confirmPassword"
-            className="block text-sm font-medium text-gray-300 mb-2"
-          >
-            Confirm password
+          <label htmlFor="confirmPassword" className={labelClass}>
+            Confirm password <span className="text-red-500">*</span>
           </label>
 
           <div className="relative">
             <input
               id="confirmPassword"
+              name="confirmPassword"
               type={showConfirmPassword ? "text" : "password"}
               placeholder="Confirm your password"
               autoComplete="new-password"
-              className="
-                w-full h-12 px-4 pr-12
-                rounded-xl
-                bg-[#111317]
-                border border-white/[0.08]
-                text-white
-                placeholder:text-gray-600
-                outline-none
-                transition
-                focus:border-red-500/60
-                focus:ring-2
-                focus:ring-red-500/10
-              "
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              className={`${inputClass} pr-11`}
               required
             />
 
@@ -232,7 +313,7 @@ const RegisterForm = () => {
                 setShowConfirmPassword(!showConfirmPassword)
               }
               className="
-                absolute right-4 top-1/2 -translate-y-1/2
+                absolute right-3 top-1/2 -translate-y-1/2
                 text-gray-500 hover:text-gray-300
                 transition
               "
@@ -244,8 +325,8 @@ const RegisterForm = () => {
             >
               {showConfirmPassword ? (
                 <svg
-                  width="19"
-                  height="19"
+                  width="18"
+                  height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -258,8 +339,8 @@ const RegisterForm = () => {
                 </svg>
               ) : (
                 <svg
-                  width="19"
-                  height="19"
+                  width="18"
+                  height="18"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -273,25 +354,35 @@ const RegisterForm = () => {
           </div>
         </div>
 
+        {/* Error */}
+        {error && (
+          <p className="text-xs text-red-400">
+            {error}
+          </p>
+        )}
+
         {/* Register button */}
         <button
           type="submit"
+          disabled={loading}
           className="
-            w-full h-12
-            rounded-xl
+            w-full h-10
+            rounded-lg
             bg-red-600
             hover:bg-red-500
             active:bg-red-700
+            disabled:opacity-50
+            disabled:cursor-not-allowed
+            text-sm
             text-white
             font-medium
             transition
             shadow-lg shadow-red-600/10
           "
         >
-          Create account
+          {loading ? "Creating account..." : "Create account"}
         </button>
       </form>
-
     </div>
   );
 };
