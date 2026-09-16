@@ -1,9 +1,11 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
 
 function Navbar({ onMenuClick }) {
   const [searchFocused, setSearchFocused] = useState(false);
   const searchInputRef = useRef(null);
+  const { user } = useAuth();
 
   const handleSearchFocus = () => {
     setSearchFocused(true);
@@ -16,7 +18,6 @@ function Navbar({ onMenuClick }) {
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#08090b]">
       <div className="flex h-16 items-center gap-2 px-3 sm:px-6">
-
         {/* =====================================================
             MOBILE / TABLET — FOCUSED SEARCH
             Only shown when search is focused
@@ -139,24 +140,14 @@ function Navbar({ onMenuClick }) {
           </button>
 
           {/* Logo */}
-          <Link
-            to="/"
-            className="flex shrink-0 items-center gap-2 sm:gap-3"
-          >
+          <Link to="/" className="flex shrink-0 items-center gap-2 sm:gap-3">
             <div className="flex h-7 w-9 items-center justify-center rounded-xl bg-[#CE2029]">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="white"
-              >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
                 <path d="M8 5.14v13.72a1 1 0 0 0 1.53.85l10.18-6.86a1 1 0 0 0 0-1.66L9.53 4.29A1 1 0 0 0 8 5.14Z" />
               </svg>
             </div>
 
-            <span className="text-xl font-bold text-white">
-              Vidio
-            </span>
+            <span className="text-xl font-bold text-white">Vidio</span>
           </Link>
 
           {/* Search */}
@@ -222,7 +213,6 @@ function Navbar({ onMenuClick }) {
 
           {/* Right Section */}
           <div className="flex shrink-0 items-center gap-1 sm:gap-4">
-
             {/* Create */}
             <button
               className="
@@ -280,20 +270,28 @@ function Navbar({ onMenuClick }) {
             {/* Profile */}
             <button
               className="
-                flex
-                h-9
-                w-9
-                shrink-0
-                items-center
-                justify-center
-                rounded-full
-                bg-gray-900
-                text-sm
-                font-semibold
-                text-white
-              "
+    flex
+    h-9
+    w-9
+    shrink-0
+    items-center
+    justify-center
+    overflow-hidden
+    rounded-full
+    bg-gray-900
+  "
             >
-              S
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.username}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-sm font-semibold text-white">
+                  {user?.username?.charAt(0).toUpperCase() || "?"}
+                </span>
+              )}
             </button>
           </div>
         </div>

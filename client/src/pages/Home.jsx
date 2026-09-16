@@ -1,6 +1,3 @@
-import Navbar from "../components/home/Navbar.jsx";
-import Sidebar from "../components/sidebar/Sidebar.jsx";
-import CategoryBar from "../components/home/CategoryBar.jsx";
 import VideoCard from "../components/home/VideoCard.jsx";
 
 const videos = [

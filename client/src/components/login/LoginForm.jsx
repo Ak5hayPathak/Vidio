@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
 
 import AuthFooter from "./AuthFooter.jsx";
 import api from "../../services/api.js";
 
 const LoginForm = () => {
   const navigate = useNavigate();
+  const { setUser } = useAuth();
 
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -47,6 +49,8 @@ const LoginForm = () => {
 
     try {
       const response = await api.post("/users/login", loginData);
+
+      setUser(response.data.data.user);
 
       console.log("Login successful:", response.data);
 
