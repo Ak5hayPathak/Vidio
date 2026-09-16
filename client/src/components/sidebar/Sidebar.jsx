@@ -12,24 +12,6 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
   const youLinks = [
     { to: "/", icon: "⌂", label: "Home", end: true },
     { to: "/channel", icon: "◉", label: "Your Channel" },
-    { to: "/subscriptions", icon: "▣", label: "Subscriptions" },
-    { to: "/history", icon: "◷", label: "History" },
-  ];
-
-  const videoLinks = [
-    { to: "/liked-videos", icon: "♡", label: "Liked Videos" },
-    { to: "/watch-later", icon: "♡", label: "Watch Later" },
-    { to: "/your-videos", icon: "♡", label: "Your Videos" },
-  ];
-
-  const playlistLinks = [
-    { to: "/playlists", icon: "☷", label: "Playlists" },
-    { to: "/collab", icon: "👥", label: "Collab" },
-  ];
-
-  const tweetLinks = [
-    { to: "/my-tweets", icon: "👥", label: "My Tweets" },
-    { to: "/liked-tweets", icon: "👥", label: "Liked Tweets" },
   ];
 
   const renderLinks = (links) =>
@@ -174,42 +156,6 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
           )}
 
           {renderLinks(youLinks)}
-
-          {/* Divider */}
-          <div className="my-3 border-t border-white/10" />
-
-          {/* Videos */}
-          {!collapsed && (
-            <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Videos
-            </p>
-          )}
-
-          {renderLinks(videoLinks)}
-
-          {/* Divider */}
-          <div className="my-3 border-t border-white/10" />
-
-          {/* Playlists */}
-          {!collapsed && (
-            <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Playlists
-            </p>
-          )}
-
-          {renderLinks(playlistLinks)}
-
-          {/* Divider */}
-          <div className="my-3 border-t border-white/10" />
-
-          {/* Tweets */}
-          {!collapsed && (
-            <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Tweets
-            </p>
-          )}
-
-          {renderLinks(tweetLinks)}
         </nav>
       </aside>
     </>

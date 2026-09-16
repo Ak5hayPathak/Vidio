@@ -8,14 +8,7 @@ import ProtectedRoute from "./components/protectRoutes/protectedRoutes.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Home from "./pages/Home.jsx";
-import Subscriptions from "./pages/Subscriptions.jsx";
-import WatchLater from "./pages/WatchLater.jsx";
-import History from "./pages/History.jsx";
-import Playlists from "./pages/Playlist.jsx";
-import Collab from "./pages/Collab.jsx";
-import LikedVideos from "./pages/LikedVideos.jsx";
 import Channel from "./pages/Channel.jsx";
-import YourVideos from "./pages/YourVideos.jsx";
 import VerifyEmail from "./pages/VerifyEmail.jsx";
 import EditChannel from "./pages/EditChannel.jsx";
 
@@ -53,15 +46,8 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />
-            <Route path="/subscriptions" element={<Subscriptions />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/watch-later" element={<WatchLater />} />
-            <Route path="/playlists" element={<Playlists />} />
-            <Route path="/collab" element={<Collab />} />
-            <Route path="/liked-videos" element={<LikedVideos />} />
             <Route path="/channel" element={<Channel />} />
             <Route path="/channel/edit" element={<EditChannel />} />
-            <Route path="/your-videos" element={<YourVideos />} />
           </Route>
         </Route>
       </Routes>
