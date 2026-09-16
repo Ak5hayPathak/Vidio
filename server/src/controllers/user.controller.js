@@ -52,6 +52,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new APIError(400, "All fields are required!");
   }
 
+  fullName = fullName.charAt(0).toUpperCase() + fullName.slice(1).toLowerCase();
   const existedUser = await User.findOne({
     $or: [{ username }, { email }],
   });

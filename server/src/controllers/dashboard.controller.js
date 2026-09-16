@@ -124,9 +124,13 @@ const getChannelVideos = asyncHandler(async (req, res) => {
     }
   );
 
-  if (videos.docs.length === 0) {
-    throw new APIError(404, "No videos found!");
-  }
+  // if (videos.docs.length === 0) {
+  //   return res
+  //     .status(200)
+  //     .json(
+  //       new APIResponse(200, videos, "Channel videos fetched successfully!")
+  //     );
+  // }
 
   return res
     .status(200)
