@@ -17,7 +17,7 @@ const options = {
   secure: true,
 };
 
-const generateAccessAndRefreshToken = async (userId) => {
+const generateAccessAndRefreshToken = async (userId, rememberMe) => {
   try {
     const user = await User.findById(userId);
 
@@ -26,7 +26,7 @@ const generateAccessAndRefreshToken = async (userId) => {
     }
 
     const accessToken = user.generateAccessToken();
-    const refreshToken = user.generateRefreshToken();
+    const refreshToken = user.generateRefreshToken(rememberMe);
 
     user.refreshToken = refreshToken;
 
@@ -117,7 +117,7 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 const loginUser = asyncHandler(async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, rememberMe } = req.body;
 
   const user = await User.findOne({
     $or: [{ username }, { email }],
@@ -138,7 +138,8 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    user._id
+    user._id,
+    rememberMe
   );
 
   const loggedinUser = await User.findById(user._id).select(
