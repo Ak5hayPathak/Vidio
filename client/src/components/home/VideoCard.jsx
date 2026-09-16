@@ -3,11 +3,9 @@ import { Link } from "react-router-dom";
 function VideoCard({ video }) {
   return (
     <article className="group">
-
       {/* Thumbnail */}
       <Link to={`/watch/${video.id}`}>
         <div className="relative aspect-video overflow-hidden rounded-xl bg-gray-200">
-
           <img
             src={`${video.thumbnail}?auto=format&fit=crop&w=800&q=80`}
             alt={video.title}
@@ -24,27 +22,27 @@ function VideoCard({ video }) {
           {/* Duration */}
           <span
             className="
-              absolute
-              bottom-2
-              right-2
-              rounded
-              bg-black/80
-              px-1.5
-              py-0.5
-              text-xs
-              font-medium
-              text-white
-            "
+    absolute
+    bottom-2
+    right-2
+    rounded
+    bg-black/80
+    px-1.5
+    py-0.5
+    text-xs
+    font-medium
+    text-white
+  "
           >
-            {video.duration}
+            {`${Math.floor(video.duration / 60)}:${String(
+              Math.floor(video.duration % 60),
+            ).padStart(2, "0")}`}
           </span>
         </div>
       </Link>
 
-
       {/* Video information */}
       <div className="mt-3 flex gap-3">
-
         {/* Channel avatar */}
         <div
           className="
@@ -64,10 +62,8 @@ function VideoCard({ video }) {
           {video.channel.charAt(0)}
         </div>
 
-
         {/* Text */}
         <div className="min-w-0">
-
           <Link
             to={`/watch/${video.id}`}
             className="
@@ -83,7 +79,6 @@ function VideoCard({ video }) {
             {video.title}
           </Link>
 
-
           <Link
             to={`/channel/${video.channel}`}
             className="
@@ -98,13 +93,10 @@ function VideoCard({ video }) {
             {video.channel}
           </Link>
 
-
           <p className="text-xs text-gray-500">
             {video.views} · {video.uploaded}
           </p>
-
         </div>
-
       </div>
     </article>
   );
