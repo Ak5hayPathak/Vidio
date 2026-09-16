@@ -1,7 +1,7 @@
 import { Routes, Route, Outlet } from "react-router-dom";
 import { useState } from "react";
 
-import Navbar from "./components/home/Navbar.jsx";
+import Navbar from "./components/navbar/Navbar.jsx";
 import Sidebar from "./components/sidebar/Sidebar.jsx";
 
 import Login from "./pages/Login.jsx";

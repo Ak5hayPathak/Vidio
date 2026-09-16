@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import Navbar from "../components/home/Navbar.jsx";
+import Navbar from "../components/navbar/Navbar.jsx";
 import api from "../services/api.js";
 
 const VerifyEmail = () => {
