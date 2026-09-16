@@ -5,4 +5,6 @@ const videoProcessingQueue = new Queue("video-processing", {
     connection: redisConnection,
 });
 
+//await videoProcessingQueue.obliterate({ force: true });
+
 export { videoProcessingQueue };
