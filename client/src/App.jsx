@@ -1,8 +1,9 @@
-import { Routes, Route, Outlet } from "react-router-dom";
+import { Routes, Route, Outlet, Navigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 
 import Navbar from "./components/navbar/Navbar.jsx";
 import Sidebar from "./components/sidebar/Sidebar.jsx";
+import ProtectedRoute from "./components/protectRoutes/protectedRoutes.jsx";
 
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
@@ -48,18 +49,20 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
 
-        {/* Application routes */}
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/subscriptions" element={<Subscriptions />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/watch-later" element={<WatchLater />} />
-          <Route path="/playlists" element={<Playlists />} />
-          <Route path="/collab" element={<Collab />} />
-          <Route path="/liked-videos" element={<LikedVideos />} />
-          <Route path="/channel" element={<Channel />} />
-          <Route path="/channel/edit" element={<EditChannel />} />
-          <Route path="/your-videos" element={<YourVideos />} />
+        {/* Protected application routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/subscriptions" element={<Subscriptions />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/watch-later" element={<WatchLater />} />
+            <Route path="/playlists" element={<Playlists />} />
+            <Route path="/collab" element={<Collab />} />
+            <Route path="/liked-videos" element={<LikedVideos />} />
+            <Route path="/channel" element={<Channel />} />
+            <Route path="/channel/edit" element={<EditChannel />} />
+            <Route path="/your-videos" element={<YourVideos />} />
+          </Route>
         </Route>
       </Routes>
     </div>
