@@ -146,10 +146,16 @@ const loginUser = asyncHandler(async (req, res) => {
     "-password -refreshToken"
   );
 
+  const refreshTokenOptions = {
+    ...options,
+    maxAge: rememberMe
+      ? 10 * 24 * 60 * 60 * 1000 // 10 days
+      : 1 * 24 * 60 * 60 * 1000, // 1 day
+  };
   return res
     .status(200)
     .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("refreshToken", refreshToken, refreshTokenOptions)
     .json(
       new APIResponse(
         200,

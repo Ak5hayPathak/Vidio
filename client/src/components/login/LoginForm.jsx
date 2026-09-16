@@ -42,6 +42,7 @@ const LoginForm = () => {
     const loginData = {
       [isEmail ? "email" : "username"]: identifier,
       password: formData.password,
+      rememberMe,
     };
 
     try {
