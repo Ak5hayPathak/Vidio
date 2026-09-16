@@ -16,6 +16,7 @@ import LikedVideos from "./pages/LikedVideos.jsx";
 import Channel from "./pages/Channel.jsx";
 import YourVideos from "./pages/YourVideos.jsx";
 import VerifyEmail from "./pages/VerifyEmail.jsx";
+import EditChannel from "./pages/EditChannel.jsx";
 
 function AppLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -57,6 +58,7 @@ function App() {
           <Route path="/collab" element={<Collab />} />
           <Route path="/liked-videos" element={<LikedVideos />} />
           <Route path="/channel" element={<Channel />} />
+          <Route path="/channel/edit" element={<EditChannel />} />
           <Route path="/your-videos" element={<YourVideos />} />
         </Route>
       </Routes>

@@ -50,7 +50,7 @@ router.route("/change-password").post(verifyJWT, isEmailVerified, changePassword
 router.route("/current-user").get(verifyJWT, getCurrentUser);
 router.route("/verify-email/:token").get(verifyEmail);
 router.route("/resend-verification-email").post(verifyJWT, resendVerificationEmail);
-router.route("/update-account").patch(verifyJWT, isEmailVerified, updateUserDetails);
+router.route("/update-details").patch(verifyJWT, isEmailVerified, updateUserDetails);
 router.route("/update-files").patch(
   verifyJWT,
   isEmailVerified,

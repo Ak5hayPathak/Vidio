@@ -187,7 +187,7 @@ const Channel = () => {
               {/* Actions */}
               <div className="flex shrink-0 gap-3">
                 <Link
-                  to="/edit-channel"
+                  to="/channel/edit"
                   className="
                     rounded-xl
                     bg-red-600

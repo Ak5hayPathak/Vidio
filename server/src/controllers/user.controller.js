@@ -344,7 +344,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 });
 
 const updateUserDetails = asyncHandler(async (req, res) => {
-  const { username, email, fullName } = req.body;
+  const { username, fullName } = req.body;
 
   if (!username && !email && !fullName) {
     throw new APIError(400, "At least one field is required!");
@@ -354,28 +354,19 @@ const updateUserDetails = asyncHandler(async (req, res) => {
 
   if (fullName) updateFields.fullName = fullName.trim();
 
-  if (email) {
-    const existingUser = await User.findOne({
-      email: email.trim().toLowerCase(),
-    });
-
-    if (existingUser) {
-      throw new APIError(400, "Email already exists");
-    }
-
-    updateFields.email = email.trim().toLowerCase();
-  }
-
   if (username) {
+    const normalizedUsername = username.trim().toLowerCase();
+
     const existingUser = await User.findOne({
-      username: username.trim().toLowerCase(),
+      username: normalizedUsername,
+      _id: { $ne: req.user._id },
     });
 
     if (existingUser) {
       throw new APIError(400, "Username already exists");
     }
 
-    updateFields.username = username.trim().toLowerCase();
+    updateFields.username = normalizedUsername;
   }
 
   const user = await User.findByIdAndUpdate(
