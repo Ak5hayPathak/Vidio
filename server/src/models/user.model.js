@@ -110,6 +110,7 @@ userSchema.methods.generateRefreshToken = function (rememberMe) {
   const refreshToken = jwt.sign(
     {
       _id: this._id,
+      rememberMe,
     },
     process.env.REFRESH_TOKEN_SECRET,
     {

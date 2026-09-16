@@ -211,14 +211,22 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       throw new APIError(401, "Refresh token is expired or used");
     }
 
+    const rememberMe = decodedToken.rememberMe;
+
     const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-      user?._id
+      user._id,
+      rememberMe
     );
+
+    const refreshTokenOptions = {
+      ...options,
+      maxAge: rememberMe ? 10 * 24 * 60 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000,
+    };
 
     return res
       .status(200)
       .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", refreshToken, options)
+      .cookie("refreshToken", refreshToken, refreshTokenOptions)
       .json(
         new APIResponse(
           200,
