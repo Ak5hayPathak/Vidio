@@ -166,11 +166,7 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new APIError(400, "Invalid video id!");
   }
 
-  const video = await Video.findByIdAndUpdate(
-    videoId,
-    { $inc: { views: 1 } }, //increases views to +1 preventing race condition
-    { returnDocument: "after" }
-  );
+  const video = await Video.findById(videoId);
 
   if (req.user?._id) {
     await User.findByIdAndUpdate(req.user._id, {
@@ -445,10 +441,29 @@ const streamVideo = asyncHandler(async (req, res) => {
 
   const key = video.videoFile;
 
-  const response = await getFileFromB2(key);
+  try {
+    const response = await getFileFromB2(key);
 
-  response.Body.pipe(res); // connects the B2 response stream to the express HTTP response
-  // it takes the data coming from B2 and send it directly to the client through res.
+    if (!response?.Body) {
+      throw new Error("B2 returned no response body");
+    }
+
+    res.type("application/vnd.apple.mpegurl");
+
+    response.Body.on("error", (error) => {
+      console.error("B2 stream error:", error);
+
+      if (!res.headersSent) {
+        res.status(500).end();
+      } else {
+        res.destroy(error);
+      }
+    });
+
+    response.Body.pipe(res);
+  } catch (error) {
+    throw error;
+  }
 });
 
 const streamHLSFile = asyncHandler(async (req, res) => {

@@ -7,6 +7,7 @@ import {
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import { b2Client } from "../config/b2Client.js";
+import { APIError } from "../utils/APIError.js";
 
 const uploadFileToB2 = async (filePath, key) => {
   const fileStream = fs.createReadStream(filePath);
@@ -139,11 +140,21 @@ const getFileFromB2 = async (key) => {
 
     return response;
   } catch (error) {
+    // console.error("\nB2 Object Erro");
+    // console.error("Key:", key);
+    // console.error("Message:", error.message);
+    // console.error("Name:", error.name);
+    // console.error("Code:", error.code);
+    // console.error("Status Code:", error.$metadata?.httpStatusCode);
+    // console.error("Request ID:", error.$metadata?.requestId);
+    // console.error("Full error:", error);
+    // console.error("-----\n");
+
     if (error.name === "NoSuchKey") {
       throw new APIError(404, "HLS file not found");
     }
 
-    throw new APIError(500, "Failed to retrieve file from storage");
+    throw error;
   }
 };
 
