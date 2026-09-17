@@ -6,7 +6,7 @@ function Search({ handleSearchFocus }) {
       <div className="relative">
         <input
           type="text"
-          placeholder="Search videos..."
+          placeholder="Search videos, tweets or users..."
           onFocus={handleSearchFocus}
           className="
             h-9
