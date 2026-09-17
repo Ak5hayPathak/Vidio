@@ -11,11 +11,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import { generateVerificationToken } from "../utils/emailVerification.js";
 import { sendVerificationEmail } from "../services/email.service.js";
-
-const options = {
-  httpOnly: true,
-  secure: true,
-};
+import { options } from "../config/configurations.js";
 
 const generateAccessAndRefreshToken = async (userId, rememberMe) => {
   try {
