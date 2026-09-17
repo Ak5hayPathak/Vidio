@@ -6,10 +6,7 @@ function MobileHeader({ setMobileOpen }) {
   return (
     <div className="flex-col lg:hidden">
       <div className="mb-4 flex justify-between">
-        {/* Logo */}
-        <NavLink to="/" className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <Logo />
-        </NavLink>
+        <Logo />
 
         {/* Close Button */}
         <button
