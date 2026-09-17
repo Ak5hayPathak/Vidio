@@ -389,68 +389,65 @@ const updateFiles = asyncHandler(async (req, res) => {
     throw new APIError(400, "At least one file is required!");
   }
 
+  // Upload avatar + cover image concurrently instead of one after another.
+  const [avatar, coverImage] = await Promise.all([
+    avatarLocalPath ? uploadOnCloudinary(avatarLocalPath) : Promise.resolve(null),
+    coverImageLocalPath ? uploadOnCloudinary(coverImageLocalPath) : Promise.resolve(null),
+  ]);
+
+  if (avatarLocalPath && !avatar?.url) {
+    // !avatar?.url because if uploadOnCloudinary() returns null, then avatar.url throws:
+    // "Cannot read properties of null"
+    throw new APIError(400, "Error while uploading on avatar");
+  }
+
+  if (coverImageLocalPath && !coverImage?.url) {
+    throw new APIError(500, "Error while uploading on cover image");
+  }
+
   const updateFields = {};
+  if (avatar?.url) updateFields.avatar = avatar.url;
+  if (coverImage?.url) updateFields.coverImage = coverImage.url;
 
-  if (avatarLocalPath) {
-    const avatar = await uploadOnCloudinary(avatarLocalPath);
-
-    // console.log("Here");
-
-    if (!avatar?.url) {
-      // !avatar?.url because if uploadOnCloudinary() returns null, then avatar.url throws:
-      // "Cannot read properties of null"
-
-      throw new APIError(400, "Error while uploading on avatar");
-    }
-
-    updateFields.avatar = avatar.url;
-  }
-
-  if (coverImageLocalPath) {
-    const coverImage = await uploadOnCloudinary(coverImageLocalPath);
-
-    if (!coverImage?.url) {
-      throw new APIError(500, "Error while uploading on cover image");
-    }
-
-    updateFields.coverImage = coverImage.url;
-  }
-
-  let user = await User.findById(req.user._id);
-
-  if (!user) {
-    throw new APIError(404, "User not found");
-  }
-
-  const oldAvatar = user.avatar;
-  const oldcoverImg = user.coverImage;
-
-  user = await User.findByIdAndUpdate(
+  // Single DB round trip: get the pre-update doc (for old asset URLs) AND
+  // apply the update at the same time.
+  const oldUser = await User.findByIdAndUpdate(
     req.user._id,
-    {
-      $set: updateFields,
-    },
-    { returnDocument: "after" }
-  ).select("-password -refreshToken");
+    { $set: updateFields },
+    { returnDocument: "before" }
+  ).select("avatar coverImage");
+
+  if (!oldUser) {
+    throw new APIError(404, "User not found");
+  }
+
+  const oldAvatar = oldUser.avatar;
+  const oldCoverImg = oldUser.coverImage;
+
+  // Fetch the fresh doc to return to the client.
+  const user = await User.findById(req.user._id).select("-password -refreshToken");
 
   if (!user) {
     throw new APIError(404, "User not found");
   }
+
+  // Clean up old Cloudinary assets in the background — don't block the
+  // response on this, and don't fail an otherwise-successful update just
+  // because stale-asset cleanup had a hiccup.
+  const cleanupTasks = [];
 
   if (avatarLocalPath && oldAvatar) {
-    try {
-      await deleteFromCloudinary(oldAvatar);
-    } catch (err) {
-      throw new APIError(500, err.message);
-    }
+    cleanupTasks.push(deleteFromCloudinary(oldAvatar));
   }
 
-  if (coverImageLocalPath && oldcoverImg) {
-    try {
-      await deleteFromCloudinary(oldcoverImg);
-    } catch (err) {
-      throw new APIError(500, err.message);
-    }
+  if (coverImageLocalPath && oldCoverImg) {
+    cleanupTasks.push(deleteFromCloudinary(oldCoverImg));
+  }
+
+  if (cleanupTasks.length) {
+    Promise.all(cleanupTasks).catch((err) => {
+      console.error("Failed to delete old Cloudinary asset(s):", err.message);
+    });
   }
 
   return res
