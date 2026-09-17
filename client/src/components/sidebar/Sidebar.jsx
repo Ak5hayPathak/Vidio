@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
 import SidebarNavLink from "./SidebarNavLink.jsx";
+import MobileBackdrop from "./MobileBackdrop.jsx";
+import MobileHeader from "./MobileHeader.jsx";
+import SidebarLabel from "./SidebarLabel.jsx";
+import SidebarCollapseButton from "./SidebarCollapseButton.jsx";
+import { youLinks } from "./sidebarLinks.js";
 
 function Sidebar({ mobileOpen, setMobileOpen }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -8,11 +12,6 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
   const handleNavClick = () => {
     setMobileOpen(false);
   };
-
-  const youLinks = [
-    { to: "/", icon: "⌂", label: "Home", end: true },
-    { to: "/channel", icon: "◉", label: "Your Channel" },
-  ];
 
   const renderLinks = (links) =>
     links.map((link) => (
@@ -26,19 +25,7 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
 
   return (
     <>
-      {/* Mobile Backdrop */}
-      {mobileOpen && (
-        <div
-          onClick={() => setMobileOpen(false)}
-          className="
-            fixed
-            inset-0
-            z-40
-            bg-black/60
-            lg:hidden
-          "
-        />
-      )}
+      <MobileBackdrop mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
       <aside
         className={`
@@ -75,85 +62,14 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
             scrollbar-thin-custom
           "
         >
-          {/* Mobile Header */}
-          <div className="mb-4 flex justify-between lg:hidden">
-            {/* Logo */}
-            <NavLink
-              to="/"
-              className="flex shrink-0 items-center gap-2 sm:gap-3"
-            >
-              <div className="flex h-7 w-9 items-center justify-center rounded-xl bg-[#CE2029]">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="white"
-                >
-                  <path d="M8 5.14v13.72a1 1 0 0 0 1.53.85l10.18-6.86a1 1 0 0 0 0-1.66L9.53 4.29A1 1 0 0 0 8 5.14Z" />
-                </svg>
-              </div>
+          <MobileHeader setMobileOpen={setMobileOpen} />
 
-              <span className="text-xl font-bold text-white">
-                Vidio
-              </span>
-            </NavLink>
+          <SidebarCollapseButton
+            collapsed={collapsed}
+            setCollapsed={setCollapsed}
+          />
 
-            {/* Close Button */}
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="
-                flex
-                h-9
-                w-9
-                items-center
-                justify-center
-                rounded-lg
-                text-gray-400
-                transition
-                hover:bg-white/10
-                hover:text-white
-              "
-              title="Close sidebar"
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Desktop Collapse Button */}
-          <div
-            className={`
-              mb-4
-              hidden
-              lg:flex
-              ${collapsed ? "justify-center" : "justify-end"}
-            `}
-          >
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              className="
-                flex
-                h-9
-                w-9
-                items-center
-                justify-center
-                rounded-lg
-                text-gray-400
-                transition
-                hover:bg-white/10
-                hover:text-white
-              "
-              title={collapsed ? "Open sidebar" : "Collapse sidebar"}
-            >
-              {collapsed ? "→" : "←"}
-            </button>
-          </div>
-
-          {/* You */}
-          {!collapsed && (
-            <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              You
-            </p>
-          )}
+          <SidebarLabel collapsed={collapsed}>You</SidebarLabel>
 
           {renderLinks(youLinks)}
         </nav>
