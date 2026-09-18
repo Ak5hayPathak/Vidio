@@ -10,7 +10,10 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import mongoose from "mongoose";
 import { generateVerificationToken } from "../utils/emailVerification.js";
-import { sendVerificationEmail } from "../services/email.service.js";
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} from "../services/email.service.js";
 import { options } from "../config/configurations.js";
 
 const generateAccessAndRefreshToken = async (userId, rememberMe) => {
@@ -204,6 +207,10 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       throw new APIError(401, "Invalid Refresh Token");
     }
 
+    if (decodedToken.sessionVersion !== user.sessionVersion) {
+      throw new APIError(401, "Session expired. Please login again.");
+    }
+
     if (incomingRefreshToken !== user?.refreshToken) {
       throw new APIError(401, "Refresh token is expired or used");
     }
@@ -333,6 +340,131 @@ const changePassword = asyncHandler(async (req, res) => {
     .json(new APIResponse(200, {}, "Password changed successfully!"));
 });
 
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  // Validate email
+  if (!email) {
+    throw new APIError(400, "Email is required!");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // Find user
+  const user = await User.findOne({
+    email: normalizedEmail,
+  });
+
+  /*
+   * Don't reveal whether an account exists
+   * with the provided email address.
+   */
+  if (!user) {
+    return res
+      .status(200)
+      .json(
+        new APIResponse(
+          200,
+          {},
+          "If an account exists with this email, a password reset link has been sent."
+        )
+      );
+  }
+
+  // Generate a secure random reset token
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  // Hash the token before storing it in the database
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // Store hashed token
+  user.forgotPasswordToken = hashedToken;
+
+  // Token expires after 15 minutes
+  user.forgotPasswordTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
+
+  await user.save({
+    validateBeforeSave: false,
+  });
+
+  // Send password reset email
+  await sendPasswordResetEmail(user.email, resetToken);
+
+  return res
+    .status(200)
+    .json(
+      new APIResponse(
+        200,
+        {},
+        "If an account exists with this email, a password reset link has been sent."
+      )
+    );
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+  const { newPassword, confirmPassword } = req.body;
+
+  if (!token) {
+    throw new APIError(400, "Reset token is required!");
+  }
+
+  if (!newPassword || !confirmPassword) {
+    throw new APIError(400, "All fields are mandatory!");
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new APIError(
+      400,
+      "Confirm password must be same as the new password"
+    );
+  }
+
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const user = await User.findOne({
+    forgotPasswordToken: hashedToken,
+    forgotPasswordTokenExpires: {
+      $gt: new Date(),
+    },
+  });
+
+  if (!user) {
+    throw new APIError(400, "Invalid or expired password reset token!");
+  }
+
+  // Change password
+  user.password = newPassword;
+
+  // Invalidate password reset token
+  user.forgotPasswordToken = null;
+  user.forgotPasswordTokenExpires = null;
+
+  // Invalidate ALL existing access tokens
+  user.sessionVersion += 1;
+
+  // Invalidate refresh token
+  user.refreshToken = null;
+
+  await user.save();
+
+  // Clear authentication cookies
+  res.clearCookie("accessToken", options).clearCookie("refreshToken", options);
+
+  return res
+    .status(200)
+    .json(
+      new APIResponse(
+        200,
+        {},
+        "Password reset successfully! You have been logged out from all devices."
+      )
+    );
+});
+
 const getCurrentUser = asyncHandler(async (req, res) => {
   return res
     .status(200)
@@ -391,8 +523,12 @@ const updateFiles = asyncHandler(async (req, res) => {
 
   // Upload avatar + cover image concurrently instead of one after another.
   const [avatar, coverImage] = await Promise.all([
-    avatarLocalPath ? uploadOnCloudinary(avatarLocalPath) : Promise.resolve(null),
-    coverImageLocalPath ? uploadOnCloudinary(coverImageLocalPath) : Promise.resolve(null),
+    avatarLocalPath
+      ? uploadOnCloudinary(avatarLocalPath)
+      : Promise.resolve(null),
+    coverImageLocalPath
+      ? uploadOnCloudinary(coverImageLocalPath)
+      : Promise.resolve(null),
   ]);
 
   if (avatarLocalPath && !avatar?.url) {
@@ -425,7 +561,9 @@ const updateFiles = asyncHandler(async (req, res) => {
   const oldCoverImg = oldUser.coverImage;
 
   // Fetch the fresh doc to return to the client.
-  const user = await User.findById(req.user._id).select("-password -refreshToken");
+  const user = await User.findById(req.user._id).select(
+    "-password -refreshToken"
+  );
 
   if (!user) {
     throw new APIError(404, "User not found");
@@ -669,6 +807,8 @@ export {
   changePassword,
   verifyEmail,
   resendVerificationEmail,
+  forgotPassword,
+  resetPassword,
   updateUserDetails,
   getCurrentUser,
   updateFiles,

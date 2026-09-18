@@ -26,10 +26,17 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
       throw new APIError(401, "Invalid or expired access token");
     }
 
+    if (decodedToken.sessionVersion !== user.sessionVersion) {
+      throw new APIError(401, "Session expired. Please login again.");
+    }
+
     req.user = user;
     next();
   } catch (error) {
-    throw new APIError(401, error?.message || "Invalid or expired access token!");
+    throw new APIError(
+      401,
+      error?.message || "Invalid or expired access token!"
+    );
   }
 });
 

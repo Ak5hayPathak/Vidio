@@ -14,6 +14,8 @@ import {
   updateUserDetails,
   clearWatchHistory,
   removeVideoFromWatchHistory,
+  forgotPassword,
+  resetPassword,
 } from "../controllers/user.controller.js";
 import {
   validateLoginUser,
@@ -46,11 +48,21 @@ router.route("/login").post(validateLoginUser, loginUser);
 //secured routes
 router.route("/logout").post(verifyJWT, logoutUser);
 router.route("/refresh-token").post(refreshAccessToken);
-router.route("/change-password").post(verifyJWT, isEmailVerified, changePassword);
+router
+  .route("/change-password")
+  .post(verifyJWT, isEmailVerified, changePassword);
+
+router.route("/forgot-password").post(forgotPassword);
+router.route("/reset-password/:token").post(resetPassword);
+
 router.route("/current-user").get(verifyJWT, getCurrentUser);
 router.route("/verify-email/:token").get(verifyEmail);
-router.route("/resend-verification-email").post(verifyJWT, resendVerificationEmail);
-router.route("/update-details").patch(verifyJWT, isEmailVerified, updateUserDetails);
+router
+  .route("/resend-verification-email")
+  .post(verifyJWT, resendVerificationEmail);
+router
+  .route("/update-details")
+  .patch(verifyJWT, isEmailVerified, updateUserDetails);
 router.route("/update-files").patch(
   verifyJWT,
   isEmailVerified,
@@ -71,9 +83,11 @@ router.route("/update-files").patch(
 );
 router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
 router.route("/history").get(verifyJWT, getWatchHistory);
-router.route("/history/clear").get(verifyJWT, isEmailVerified,  clearWatchHistory);
+router
+  .route("/history/clear")
+  .get(verifyJWT, isEmailVerified, clearWatchHistory);
 router
   .route("/history/clear/:videoId")
-  .get(verifyJWT,isEmailVerified,  removeVideoFromWatchHistory);
+  .get(verifyJWT, isEmailVerified, removeVideoFromWatchHistory);
 
 export default router;

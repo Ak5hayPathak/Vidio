@@ -36,6 +36,21 @@ const userSchema = new Schema(
       default: null,
     },
 
+    forgotPasswordToken: {
+      type: String,
+      default: null,
+    },
+
+    forgotPasswordTokenExpires: {
+      type: Date,
+      default: null,
+    },
+
+    sessionVersion: {
+      type: Number,
+      default: 0,
+    },
+
     fullName: {
       type: String,
       required: true,
@@ -96,6 +111,7 @@ userSchema.methods.generateAccessToken = function () {
       email: this.email,
       username: this.username,
       fullName: this.fullName,
+      sessionVersion: this.sessionVersion,
     },
     process.env.ACCESS_TOKEN_SECRET,
     {
@@ -111,6 +127,7 @@ userSchema.methods.generateRefreshToken = function (rememberMe) {
     {
       _id: this._id,
       rememberMe,
+      sessionVersion: this.sessionVersion,
     },
     process.env.REFRESH_TOKEN_SECRET,
     {
