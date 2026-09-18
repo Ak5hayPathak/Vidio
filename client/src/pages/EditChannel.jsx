@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { useAuth } from "../components/context/AuthContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 import api from "../services/api.js";
 
 import ChannelLoading from "../components/channel/ChannelLoading.jsx";

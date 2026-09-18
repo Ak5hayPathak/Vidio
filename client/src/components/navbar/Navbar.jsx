@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
 import FocusedSearch from "./FocusedSearch.jsx";
 import Logo from "../logo/Logo.jsx";
 import MobileMenuButton from "./MobileMenuButton.jsx";

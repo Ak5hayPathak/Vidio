@@ -207,7 +207,7 @@ function ResetPassword() {
                   w-full
                   rounded-xl
                   border
-                  border-white/[0.08]
+                  border-white/8
                   bg-[#111317]
                   px-4
                   pr-12
