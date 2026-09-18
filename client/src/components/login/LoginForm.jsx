@@ -52,11 +52,11 @@ const LoginForm = () => {
 
       setUser(response.data.data.user);
 
-      console.log("Login successful:", response.data);
+      //console.log("Login successful:", response.data);
 
       navigate("/");
     } catch (error) {
-      console.error("Login failed:", error);
+      //console.error("Login failed:", error);
 
       setError(
         error.response?.data?.message ||
