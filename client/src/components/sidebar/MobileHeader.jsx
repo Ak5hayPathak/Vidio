@@ -1,12 +1,11 @@
-import { NavLink } from "react-router-dom";
-import Logo from "../logo/Logo.jsx";
+import NavbarLogo from "../logo/NavbarLogo.jsx";
 import { X } from "lucide-react";
 
 function MobileHeader({ setMobileOpen }) {
   return (
     <div className="flex-col lg:hidden">
       <div className="mb-4 flex justify-between">
-        <Logo />
+        <NavbarLogo />
 
         {/* Close Button */}
         <button

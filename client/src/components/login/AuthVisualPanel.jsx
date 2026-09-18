@@ -1,15 +1,10 @@
-import { Link } from "react-router-dom";
+import AuthLogo from "../logo/AuthLogo";
 
 const AuthVisualPanel = () => {
   return (
     <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#111318] via-[#090a0c] to-black" />
-
-      {/* Ambient glow */}
-      <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-red-600/10 blur-[120px]" />
-      <div className="absolute bottom-[-200px] right-[-100px] w-[500px] h-[500px] rounded-full bg-orange-500/5 blur-[120px]" />
-
       {/* Decorative grid */}
       <div
         className="absolute inset-0 opacity-[0.035]"
@@ -22,17 +17,7 @@ const AuthVisualPanel = () => {
 
       <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 w-full">
         {/* Logo */}
-        <div>
-          <Link to="/" className="inline-flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shadow-lg shadow-red-600/20 group-hover:bg-red-500 transition">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-                <path d="M8 5.14v13.72a1 1 0 0 0 1.53.85l10.18-6.86a1 1 0 0 0 0-1.66L9.53 4.29A1 1 0 0 0 8 5.14Z" />
-              </svg>
-            </div>
-
-            <span className="text-2xl font-bold tracking-tight">Vidio</span>
-          </Link>
-        </div>
+        <AuthLogo/>
 
         {/* Main message */}
         <div className="max-w-xl">

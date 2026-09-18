@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext.jsx";
 import FocusedSearch from "./FocusedSearch.jsx";
-import Logo from "../logo/Logo.jsx";
+import NavbarLogo from "../logo/NavbarLogo.jsx";
 import MobileMenuButton from "./MobileMenuButton.jsx";
 import Search from "./Search.jsx";
 import CreateButton from "./CreateButton.jsx";
@@ -43,7 +43,7 @@ function Navbar({ onMenuClick }) {
           <MobileMenuButton onMenuClick={onMenuClick} />
 
           {/* Logo */}
-          <Logo />
+          <NavbarLogo />
 
           {/* Search */}
           <Search handleSearchFocus={handleSearchFocus} />
