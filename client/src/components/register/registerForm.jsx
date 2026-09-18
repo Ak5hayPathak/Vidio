@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "../../services/api.js";
+import { Mail } from "lucide-react";
 
 const RegisterForm = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -64,7 +65,7 @@ const RegisterForm = () => {
       console.error(error);
 
       setError(
-        error.response?.data?.message||
+        error.response?.data?.message ||
           "Something went wrong while creating your account.",
       );
     } finally {
@@ -93,20 +94,22 @@ const RegisterForm = () => {
   return (
     <div className="w-full max-w-md">
       {/* Heading */}
-      {registered || <div className="mb-5">
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Create your account
-        </h2>
+      {registered || (
+        <div className="mb-5">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Create your account
+          </h2>
 
-        <p className="mt-1 text-sm text-gray-500">
-          Join Vidio and start sharing your videos.
-        </p>
-      </div>}
+          <p className="mt-1 text-sm text-gray-500">
+            Join Vidio and start sharing your videos.
+          </p>
+        </div>
+      )}
 
       {registered ? (
-        <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-600/10 text-2xl">
-            ✉
+        <div className="flex h-80 flex-col items-center justify-center text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-600/10 text-red-500">
+            <Mail size={26} />
           </div>
 
           <h2 className="mt-5 text-2xl font-semibold">Check your email</h2>
@@ -177,22 +180,22 @@ const RegisterForm = () => {
             />
           </div>
 
-{/* Images */}
-<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-  {/* Avatar */}
-  <div>
-    <label htmlFor="avatar" className={labelClass}>
-      Avatar{" "}
-      <span className="font-normal text-gray-500">(Optional)</span>
-    </label>
+          {/* Images */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* Avatar */}
+            <div>
+              <label htmlFor="avatar" className={labelClass}>
+                Avatar{" "}
+                <span className="font-normal text-gray-500">(Optional)</span>
+              </label>
 
-    <input
-      id="avatar"
-      name="avatar"
-      type="file"
-      accept="image/*"
-      onChange={handleChange}
-      className="
+              <input
+                id="avatar"
+                name="avatar"
+                type="file"
+                accept="image/*"
+                onChange={handleChange}
+                className="
         block w-full
         cursor-pointer
         text-xs text-gray-400
@@ -207,23 +210,23 @@ const RegisterForm = () => {
         file:text-white
         hover:file:bg-red-500
       "
-    />
-  </div>
+              />
+            </div>
 
-  {/* Cover Image */}
-  <div>
-    <label htmlFor="coverImage" className={labelClass}>
-      Cover image{" "}
-      <span className="font-normal text-gray-500">(Optional)</span>
-    </label>
+            {/* Cover Image */}
+            <div>
+              <label htmlFor="coverImage" className={labelClass}>
+                Cover image{" "}
+                <span className="font-normal text-gray-500">(Optional)</span>
+              </label>
 
-    <input
-      id="coverImage"
-      name="coverImage"
-      type="file"
-      accept="image/*"
-      onChange={handleChange}
-      className="
+              <input
+                id="coverImage"
+                name="coverImage"
+                type="file"
+                accept="image/*"
+                onChange={handleChange}
+                className="
         block w-full
         cursor-pointer
         text-xs text-gray-400
@@ -238,9 +241,9 @@ const RegisterForm = () => {
         file:text-white
         hover:file:bg-red-500
       "
-    />
-  </div>
-</div>
+              />
+            </div>
+          </div>
 
           {/* Password */}
           <div>
