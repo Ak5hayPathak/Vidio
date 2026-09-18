@@ -36,7 +36,7 @@ function FocusedSearch({ handleBack, searchFocused, searchInputRef }) {
               ref={searchInputRef}
               autoFocus
               type="text"
-              placeholder="Search videos..."
+              placeholder="Search videos, tweets, playlists, or users..."
               className="
                 h-10
                 w-full

@@ -144,6 +144,12 @@ function Channel() {
           </section>
         )}
 
+        {activeTab === "Playlists" && (
+          <section className="mt-8 text-sm text-gray-500">
+            Playlists coming soon.
+          </section>
+        )}
+
         {activeTab === "About" && (
           <section className="mt-8 text-sm text-gray-500">
             About coming soon.

@@ -1,4 +1,4 @@
-const TABS = ["Videos", "Tweets", "About"];
+const TABS = ["Videos", "Tweets", "Playlists", "About"];
 
 function ChannelTabs({ activeTab, onTabChange }) {
   return (
