@@ -16,6 +16,7 @@ import {
 } from "../services/b2.service.js";
 import { generateStreamToken } from "../utils/streamToken.js";
 
+//TODO: Count views Controller
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description = "", tags = [] } = req.body;
 
