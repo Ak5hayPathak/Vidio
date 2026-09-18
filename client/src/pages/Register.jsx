@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 import AuthVisualPanel from "../components/login/AuthVisualPanel.jsx";
 import RegisterForm from "../components/register/registerForm.jsx";
+import AuthLogo from "../components/logo/AuthLogo.jsx";
 
 const Register = () => {
   return (
@@ -14,28 +15,23 @@ const Register = () => {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex justify-center mb-10">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-3"
-            >
-              <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="white"
-                >
-                  <path d="M8 5.14v13.72a1 1 0 0 0 1.53.85l10.18-6.86a1 1 0 0 0 0-1.66L9.53 4.29A1 1 0 0 0 8 5.14Z" />
-                </svg>
-              </div>
-
-              <span className="text-2xl font-bold">
-                Vidio
-              </span>
-            </Link>
+            <AuthLogo/>
           </div>
 
-          <RegisterForm/>
+          <RegisterForm />
+
+          {/* Terms */}
+          <p className="text-center text-xs text-gray-600 mt-8 leading-relaxed">
+            By continuing, you agree to Vidio's{" "}
+            <Link to="/terms" className="hover:text-gray-400 transition">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" className="hover:text-gray-400 transition">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </div>
       </main>
     </div>

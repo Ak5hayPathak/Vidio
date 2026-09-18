@@ -93,7 +93,7 @@ const RegisterForm = () => {
   return (
     <div className="w-full max-w-md">
       {/* Heading */}
-      <div className="mb-5">
+      {registered || <div className="mb-5">
         <h2 className="text-2xl font-semibold tracking-tight">
           Create your account
         </h2>
@@ -101,7 +101,7 @@ const RegisterForm = () => {
         <p className="mt-1 text-sm text-gray-500">
           Join Vidio and start sharing your videos.
         </p>
-      </div>
+      </div>}
 
       {registered ? (
         <div className="text-center">
@@ -177,67 +177,70 @@ const RegisterForm = () => {
             />
           </div>
 
-          {/* Avatar */}
-          <div>
-            <label htmlFor="avatar" className={labelClass}>
-              Avatar{" "}
-              <span className="text-gray-500 font-normal">(Optional)</span>
-            </label>
+{/* Images */}
+<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+  {/* Avatar */}
+  <div>
+    <label htmlFor="avatar" className={labelClass}>
+      Avatar{" "}
+      <span className="font-normal text-gray-500">(Optional)</span>
+    </label>
 
-            <input
-              id="avatar"
-              name="avatar"
-              type="file"
-              accept="image/*"
-              onChange={handleChange}
-              className="
-              block w-full
-              text-xs text-gray-400
-              file:mr-3
-              file:py-1.5
-              file:px-3
-              file:rounded-lg
-              file:border-0
-              file:bg-red-600
-              file:text-white
-              file:text-xs
-              file:font-medium
-              hover:file:bg-red-500
-              cursor-pointer
-            "
-            />
-          </div>
+    <input
+      id="avatar"
+      name="avatar"
+      type="file"
+      accept="image/*"
+      onChange={handleChange}
+      className="
+        block w-full
+        cursor-pointer
+        text-xs text-gray-400
+        file:mr-2
+        file:rounded-lg
+        file:border-0
+        file:bg-red-600
+        file:px-2.5
+        file:py-1.5
+        file:text-xs
+        file:font-medium
+        file:text-white
+        hover:file:bg-red-500
+      "
+    />
+  </div>
 
-          {/* Cover Image */}
-          <div>
-            <label htmlFor="coverImage" className={labelClass}>
-              Cover image{" "}
-              <span className="text-gray-500 font-normal">(Optional)</span>
-            </label>
+  {/* Cover Image */}
+  <div>
+    <label htmlFor="coverImage" className={labelClass}>
+      Cover image{" "}
+      <span className="font-normal text-gray-500">(Optional)</span>
+    </label>
 
-            <input
-              id="coverImage"
-              name="coverImage"
-              type="file"
-              accept="image/*"
-              onChange={handleChange}
-              className="
-              block w-full
-              text-xs text-gray-400
-              file:mr-3
-              file:py-1.5
-              file:px-3
-              file:rounded-lg
-              file:border-0
-              file:bg-red-600
-              file:text-white
-              file:text-xs
-              file:font-medium
-              hover:file:bg-red-500
-              cursor-pointer
-            "
-            />
-          </div>
+    <input
+      id="coverImage"
+      name="coverImage"
+      type="file"
+      accept="image/*"
+      onChange={handleChange}
+      className="
+        block w-full
+        cursor-pointer
+        text-xs text-gray-400
+        file:mr-2
+        file:rounded-lg
+        file:border-0
+        file:bg-red-600
+        file:px-2.5
+        file:py-1.5
+        file:text-xs
+        file:font-medium
+        file:text-white
+        hover:file:bg-red-500
+      "
+    />
+  </div>
+</div>
 
           {/* Password */}
           <div>

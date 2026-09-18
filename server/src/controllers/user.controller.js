@@ -51,7 +51,8 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new APIError(400, "All fields are required!");
   }
 
-  fullName = fullName.charAt(0).toUpperCase() + fullName.slice(1).toLowerCase();
+  const formattedFullName =
+    fullName.charAt(0).toUpperCase() + fullName.slice(1).toLowerCase();
   const existedUser = await User.findOne({
     $or: [{ username }, { email }],
   });
@@ -80,8 +81,10 @@ const registerUser = asyncHandler(async (req, res) => {
   //   throw new APIError(400, "Avatar file is required!");
   // }
 
-  const avatar = await uploadOnCloudinary(avatarLocalPath);
-  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+  const [avatar, coverImage] = await Promise.all([
+    uploadOnCloudinary(avatarLocalPath),
+    uploadOnCloudinary(coverImageLocalPath),
+  ]);
 
   // if (!avatar) {
   //   throw new APIError(400, "Avatar file is required!");
@@ -90,7 +93,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const { token, hashedToken, tokenExpires } = generateVerificationToken();
 
   const user = await User.create({
-    fullName,
+    fullName: formattedFullName,
     avatar: avatar?.url || "",
     coverImage: coverImage?.url || "",
     email,
