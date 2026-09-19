@@ -7,6 +7,7 @@ import ChannelLoggedOut from "../components/channel/ChannelLoggedOut.jsx";
 import ChannelHeader from "../components/channel/ChannelHeader.jsx";
 import ChannelTabs from "../components/channel/ChannelTabs.jsx";
 import ChannelVideos from "../components/channel/ChannelVideos.jsx";
+import ChannelAbout from "../components/channel/ChannelAbout.jsx";
 
 const numberFormatter = new Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -26,6 +27,7 @@ function Channel() {
   });
 
   const [videos, setVideos] = useState([]);
+  const [about, setAbout] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("Videos");
@@ -36,15 +38,18 @@ function Channel() {
       username: user?.username ? `@${user.username}` : "",
       avatar: user?.avatar,
       cover: user?.coverImage,
+      about,
       initial: (user?.fullName || user?.username || "?")
         .charAt(0)
         .toUpperCase(),
     }),
-    [user],
+    [user, about],
   );
 
   useEffect(() => {
     if (authLoading || !user) return;
+
+    setAbout(user.about || "");
 
     const controller = new AbortController();
 
@@ -87,6 +92,10 @@ function Channel() {
 
   const handleTabChange = useCallback((tab) => {
     setActiveTab(tab);
+  }, []);
+
+  const handleAboutUpdate = useCallback((updatedAbout) => {
+    setAbout(updatedAbout);
   }, []);
 
   if (authLoading || loading) {
@@ -151,9 +160,10 @@ function Channel() {
         )}
 
         {activeTab === "About" && (
-          <section className="mt-8 text-sm text-gray-500">
-            About coming soon.
-          </section>
+          <ChannelAbout
+            about={about}
+            onAboutUpdate={handleAboutUpdate}
+          />
         )}
       </main>
     </div>

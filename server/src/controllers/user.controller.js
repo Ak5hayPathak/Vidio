@@ -310,10 +310,7 @@ const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
   if (!currentPassword || !newPassword) {
-    throw new APIError(
-      400,
-      "Current password and new password are required"
-    );
+    throw new APIError(400, "Current password and new password are required");
   }
 
   const user = await User.findById(req.user._id);
@@ -322,9 +319,7 @@ const changePassword = asyncHandler(async (req, res) => {
     throw new APIError(404, "User not found");
   }
 
-  const isPasswordCorrect = await user.isPasswordCorrect(
-    currentPassword
-  );
+  const isPasswordCorrect = await user.isPasswordCorrect(currentPassword);
 
   if (!isPasswordCorrect) {
     throw new APIError(400, "Current password is incorrect");
@@ -336,13 +331,7 @@ const changePassword = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(
-      new APIResponse(
-        200,
-        {},
-        "Password changed successfully"
-      )
-    );
+    .json(new APIResponse(200, {}, "Password changed successfully"));
 });
 
 const forgotPassword = asyncHandler(async (req, res) => {
@@ -599,6 +588,41 @@ const getCurrentUser = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new APIResponse(200, req.user, "User fetched successfully"));
+});
+
+const updateAbout = asyncHandler(async (req, res) => {
+  const { about } = req.body;
+
+  if (about === undefined) {
+    throw new APIError(400, "About field is required");
+  }
+
+  const trimmedAbout = about.trim();
+
+  if (trimmedAbout.length > 500) {
+    throw new APIError(400, "About cannot exceed 500 characters");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        about: trimmedAbout,
+      },
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  ).select("-password -refreshToken");
+
+  if (!user) {
+    throw new APIError(404, "User not found");
+  }
+
+  return res
+    .status(200)
+    .json(new APIResponse(200, user, "About updated successfully"));
 });
 
 const updateUserDetails = asyncHandler(async (req, res) => {
@@ -936,6 +960,7 @@ export {
   refreshAccessToken,
   changePassword,
   verifyEmail,
+  updateAbout,
   resendVerificationEmail,
   forgotPassword,
   resetPassword,

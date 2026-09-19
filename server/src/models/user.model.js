@@ -13,6 +13,13 @@ const userSchema = new Schema(
       index: true,
     },
 
+    about: {
+      type: String,
+      trim: true,
+      maxlength: 5000,
+      default: "",
+    },
+
     email: {
       type: String,
       required: true,

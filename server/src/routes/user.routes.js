@@ -10,6 +10,7 @@ import {
   resendVerificationEmail,
   refreshAccessToken,
   registerUser,
+  updateAbout,
   updateFiles,
   updateUserDetails,
   clearWatchHistory,
@@ -55,6 +56,8 @@ router
   .route("/change-password")
   .post(verifyJWT, isEmailVerified, validateChangedPassword, changePassword);
 
+router.patch("/update-about", verifyJWT, updateAbout);
+
 router.route("/forgot-password").post(forgotPassword);
 router.route("/reset-password/:token").post(resetPassword);
 
@@ -62,9 +65,7 @@ router.route("/current-user").get(verifyJWT, getCurrentUser);
 router.route("/verify-email/:token").get(verifyEmail);
 
 router.route("/change-email").post(verifyJWT, changeEmail);
-router
-  .route("/verify-changed-email/:token")
-  .post(verifyEmailChange);
+router.route("/verify-changed-email/:token").post(verifyEmailChange);
 
 router
   .route("/resend-verification-email")
