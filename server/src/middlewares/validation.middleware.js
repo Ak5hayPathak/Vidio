@@ -67,4 +67,17 @@ const validateLoginUser = (req, res, next) => {
   next();
 };
 
-export { validateLoginUser, validateRegisterUser };
+const validateChangedPassword = (req, res, next) => {
+  const { newPassword } = req.body;
+
+  if (!isValidPassword(newPassword)) {
+      throw new APIError(
+        400,
+        "New password must be at least 8 characters and contain uppercase, lowercase, and a number"
+      );
+    }
+
+    next();
+};
+
+export { validateLoginUser, validateRegisterUser, validateChangedPassword };

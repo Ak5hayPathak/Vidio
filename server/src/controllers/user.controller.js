@@ -307,41 +307,42 @@ const resendVerificationEmail = asyncHandler(async (req, res) => {
 });
 
 const changePassword = asyncHandler(async (req, res) => {
-  const { oldPassword, newPassword, confirmPassword } = req.body;
+  const { currentPassword, newPassword } = req.body;
 
-  if (!oldPassword || !newPassword || !confirmPassword) {
-    throw new APIError(400, "All fields are mandatory!");
-  }
-
-  if (oldPassword === newPassword) {
-    throw new APIError(400, "New password cannot be same as the old password");
-  }
-
-  if (confirmPassword !== newPassword) {
+  if (!currentPassword || !newPassword) {
     throw new APIError(
       400,
-      "Confirm password must be same as the new passoword"
+      "Current password and new password are required"
     );
   }
 
-  const user = await User.findById(req.user?._id);
+  const user = await User.findById(req.user._id);
 
   if (!user) {
     throw new APIError(404, "User not found");
   }
 
-  const isPasswordValid = await user.isPasswordCorrect(oldPassword);
+  const isPasswordCorrect = await user.isPasswordCorrect(
+    currentPassword
+  );
 
-  if (!isPasswordValid) {
-    throw new APIError(400, "Invalid old password");
+  if (!isPasswordCorrect) {
+    throw new APIError(400, "Current password is incorrect");
   }
 
   user.password = newPassword;
-  await user.save({ validateBeforeSave: false });
+
+  await user.save();
 
   return res
     .status(200)
-    .json(new APIResponse(200, {}, "Password changed successfully!"));
+    .json(
+      new APIResponse(
+        200,
+        {},
+        "Password changed successfully"
+      )
+    );
 });
 
 const forgotPassword = asyncHandler(async (req, res) => {

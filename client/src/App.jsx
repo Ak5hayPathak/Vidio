@@ -17,6 +17,7 @@ import ChangeEmail from "./pages/ChangeEmail.jsx";
 
 import Settings from "./pages/Settings.jsx";
 import VerifyEmailChange from "./pages/VerifyEmailChange.jsx";
+import ChangePassword from "./pages/ChangePassword.jsx";
 
 function AppLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -61,6 +62,10 @@ function App() {
             <Route
               path="/settings/account/change-email"
               element={<ChangeEmail />}
+            />
+            <Route
+              path="/settings/account/change-password"
+              element={<ChangePassword />}
             />
           </Route>
         </Route>

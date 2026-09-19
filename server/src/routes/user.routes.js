@@ -20,6 +20,7 @@ import {
   verifyEmailChange,
 } from "../controllers/user.controller.js";
 import {
+  validateChangedPassword,
   validateLoginUser,
   validateRegisterUser,
 } from "../middlewares/validation.middleware.js";
@@ -52,7 +53,7 @@ router.route("/logout").post(verifyJWT, logoutUser);
 router.route("/refresh-token").post(refreshAccessToken);
 router
   .route("/change-password")
-  .post(verifyJWT, isEmailVerified, changePassword);
+  .post(verifyJWT, isEmailVerified, validateChangedPassword, changePassword);
 
 router.route("/forgot-password").post(forgotPassword);
 router.route("/reset-password/:token").post(resetPassword);

@@ -60,12 +60,14 @@ const Settings = () => {
                 />
               </Link>
 
-              <SettingItem
-                icon={Lock}
-                title="Password"
-                description="Change your account password"
-                showArrow
-              />
+              <Link to="/settings/account/change-password">
+                <SettingItem
+                  icon={Lock}
+                  title="Password"
+                  description="Change your account password"
+                  showArrow
+                />
+              </Link>
 
               <SettingItem
                 icon={Shield}
