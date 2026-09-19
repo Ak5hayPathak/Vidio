@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { User, Settings, LogOut } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import api from "../../services/api.js";
+import LogoutConfirm from "../logout/LogoutConfirm.jsx";
 
 function ProfileButton({ user }) {
   const [open, setOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+
   const profileRef = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -19,6 +24,20 @@ function ProfileButton({ user }) {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await api.post("/users/logout");
+
+      setLogoutOpen(false);
+      navigate("/login");
+    } catch (error) {
+      console.error(
+        "Logout failed:",
+        error.response?.data?.message || error.message,
+      );
+    }
+  };
 
   return (
     <div ref={profileRef} className="relative">
@@ -119,12 +138,12 @@ function ProfileButton({ user }) {
           </div>
 
           {/* Options */}
-
           <div className="p-1.5">
             {/* Your Channel */}
-            <NavLink to="/channel">
-              <button
-                className="
+            <NavLink
+              to="/channel"
+              onClick={() => setOpen(false)}
+              className="
                 flex
                 w-full
                 items-center
@@ -138,16 +157,16 @@ function ProfileButton({ user }) {
                 hover:bg-white/5
                 hover:text-white
               "
-              >
-                <User size={18} />
-                <span>Your Channel</span>
-              </button>
+            >
+              <User size={18} />
+              <span>Your Channel</span>
             </NavLink>
 
             {/* Settings */}
-            <NavLink to="/settings">
-              <button
-                className="
+            <NavLink
+              to="/settings"
+              onClick={() => setOpen(false)}
+              className="
                 flex
                 w-full
                 items-center
@@ -161,16 +180,19 @@ function ProfileButton({ user }) {
                 hover:bg-white/5
                 hover:text-white
               "
-              >
-                <Settings size={18} />
-                <span>Settings</span>
-              </button>
+            >
+              <Settings size={18} />
+              <span>Settings</span>
             </NavLink>
           </div>
 
           {/* Logout */}
           <div className="border-t border-white/10 p-1.5">
             <button
+              onClick={() => {
+                setOpen(false);
+                setLogoutOpen(true);
+              }}
               className="
                 flex
                 w-full
@@ -191,6 +213,14 @@ function ProfileButton({ user }) {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Logout Confirmation */}
+      {logoutOpen && (
+        <LogoutConfirm
+          onCancel={() => setLogoutOpen(false)}
+          onConfirm={handleLogout}
+        />
       )}
     </div>
   );
