@@ -62,7 +62,40 @@ const sendPasswordResetEmail = async (email, token) => {
   });
 };
 
+const sendEmailChangeVerificationEmail = async (email, token) => {
+  const verificationLink = `${process.env.CLIENT_URL}/verify-email-change?token=${token}`;
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Confirm your new Vidio email",
+    html: `
+      <h2>Confirm your new email address</h2>
+
+      <p>
+        You requested to change the email address associated
+        with your Vidio account.
+      </p>
+
+      <p>
+        Click the link below to confirm your new email address:
+      </p>
+
+      <a href="${verificationLink}">
+        Confirm New Email
+      </a>
+
+      <p>This link expires in 30 minutes.</p>
+
+      <p>
+        If you didn't request this change, you can safely ignore this email.
+      </p>
+    `,
+  });
+};
+
 export {
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendEmailChangeVerificationEmail,
 };

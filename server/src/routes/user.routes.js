@@ -16,6 +16,8 @@ import {
   removeVideoFromWatchHistory,
   forgotPassword,
   resetPassword,
+  changeEmail,
+  verifyEmailChange,
 } from "../controllers/user.controller.js";
 import {
   validateLoginUser,
@@ -57,6 +59,12 @@ router.route("/reset-password/:token").post(resetPassword);
 
 router.route("/current-user").get(verifyJWT, getCurrentUser);
 router.route("/verify-email/:token").get(verifyEmail);
+
+router.route("/change-email").post(verifyJWT, changeEmail);
+router
+  .route("/verify-changed-email/:token")
+  .post(verifyEmailChange);
+
 router
   .route("/resend-verification-email")
   .post(verifyJWT, resendVerificationEmail);

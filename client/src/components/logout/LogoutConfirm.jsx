@@ -1,4 +1,8 @@
-function LogoutConfirm({ onConfirm, onCancel }) {
+function LogoutConfirm({
+  onConfirm,
+  onCancel,
+  text = "Logout",
+}) {
   return (
     <div
       className="
@@ -24,14 +28,17 @@ function LogoutConfirm({ onConfirm, onCancel }) {
           shadow-2xl
         "
       >
-        <h2 className="text-lg font-semibold text-white">Logout?</h2>
+        <h2 className="text-lg font-semibold text-white">
+          {text}?
+        </h2>
 
         <p className="mt-2 text-sm text-gray-400">
-          Are you sure you want to logout?
+          Are you sure you want to {text.toLowerCase()}?
         </p>
 
         <div className="mt-5 flex justify-end gap-2">
           <button
+            type="button"
             onClick={onCancel}
             className="
               rounded-lg
@@ -48,6 +55,7 @@ function LogoutConfirm({ onConfirm, onCancel }) {
           </button>
 
           <button
+            type="button"
             onClick={onConfirm}
             className="
               rounded-lg
@@ -61,7 +69,7 @@ function LogoutConfirm({ onConfirm, onCancel }) {
               hover:bg-red-700
             "
           >
-            Logout
+            {text}
           </button>
         </div>
       </div>

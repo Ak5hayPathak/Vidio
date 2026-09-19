@@ -188,7 +188,7 @@ function ProfileButton({ user }) {
 
           {/* Logout */}
           <div className="border-t border-white/10 p-1.5">
-            <button
+            <div
               onClick={() => {
                 setOpen(false);
                 setLogoutOpen(true);
@@ -210,7 +210,7 @@ function ProfileButton({ user }) {
             >
               <LogOut size={18} />
               <span>Logout</span>
-            </button>
+            </div>
           </div>
         </div>
       )}

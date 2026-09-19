@@ -13,6 +13,7 @@ import { generateVerificationToken } from "../utils/emailVerification.js";
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendEmailChangeVerificationEmail,
 } from "../services/email.service.js";
 import { options } from "../config/configurations.js";
 
@@ -468,6 +469,131 @@ const resetPassword = asyncHandler(async (req, res) => {
     );
 });
 
+const changeEmail = asyncHandler(async (req, res) => {
+  const { currentEmail, newEmail } = req.body;
+
+  if (!currentEmail || !newEmail) {
+    throw new APIError(400, "Current email and new email are required");
+  }
+
+  const normalizedCurrentEmail = currentEmail.trim().toLowerCase();
+
+  const normalizedNewEmail = newEmail.trim().toLowerCase();
+
+  if (normalizedCurrentEmail === normalizedNewEmail) {
+    throw new APIError(
+      400,
+      "New email must be different from your current email"
+    );
+  }
+
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    throw new APIError(404, "User not found");
+  }
+
+  if (user.email !== normalizedCurrentEmail) {
+    throw new APIError(400, "Current email is incorrect");
+  }
+
+  const existingUser = await User.findOne({
+    email: normalizedNewEmail,
+  });
+
+  if (existingUser) {
+    throw new APIError(
+      409,
+      "This email is already associated with another account"
+    );
+  }
+
+  const verificationToken = crypto.randomBytes(32).toString("hex");
+
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(verificationToken)
+    .digest("hex");
+
+  user.pendingEmail = normalizedNewEmail;
+
+  user.emailVerificationToken = hashedToken;
+
+  user.emailVerificationTokenExpires = new Date(Date.now() + 30 * 60 * 1000);
+
+  await user.save({
+    validateBeforeSave: false,
+  });
+
+  await sendEmailChangeVerificationEmail(normalizedNewEmail, verificationToken);
+
+  return res
+    .status(200)
+    .json(
+      new APIResponse(
+        200,
+        {},
+        "Verification email sent to your new email address"
+      )
+    );
+});
+
+const verifyEmailChange = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+
+  if (!token) {
+    throw new APIError(400, "Email verification token is required");
+  }
+
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const user = await User.findOne({
+    emailVerificationToken: hashedToken,
+    emailVerificationTokenExpires: {
+      $gt: new Date(),
+    },
+  });
+
+  if (!user) {
+    throw new APIError(400, "Invalid or expired email verification link");
+  }
+
+  if (!user.pendingEmail) {
+    throw new APIError(400, "No pending email change found");
+  }
+
+  const existingUser = await User.findOne({
+    email: user.pendingEmail,
+    _id: { $ne: user._id },
+  });
+
+  if (existingUser) {
+    throw new APIError(
+      409,
+      "This email is already associated with another account"
+    );
+  }
+
+  user.email = user.pendingEmail;
+
+  user.pendingEmail = null;
+
+  user.emailVerificationToken = null;
+
+  user.emailVerificationTokenExpires = null;
+
+  user.isEmailVerified = true;
+
+  // Invalidate existing access and refresh tokens
+  user.sessionVersion += 1;
+
+  await user.save();
+
+  return res
+    .status(200)
+    .json(new APIResponse(200, {}, "Email address changed successfully"));
+});
+
 const getCurrentUser = asyncHandler(async (req, res) => {
   return res
     .status(200)
@@ -819,4 +945,6 @@ export {
   getWatchHistory,
   clearWatchHistory,
   removeVideoFromWatchHistory,
+  changeEmail,
+  verifyEmailChange,
 };

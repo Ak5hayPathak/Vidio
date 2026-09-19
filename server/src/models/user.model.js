@@ -36,6 +36,13 @@ const userSchema = new Schema(
       default: null,
     },
 
+    pendingEmail: {
+      type: String,
+      default: null,
+      lowercase: true,
+      trim: true,
+    },
+
     forgotPasswordToken: {
       type: String,
       default: null,
