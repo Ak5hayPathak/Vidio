@@ -20,24 +20,30 @@ import {
   changeEmail,
   verifyEmailChange,
 } from "../controllers/user.controller.js";
+
 import {
   validateChangedPassword,
   validateLoginUser,
   validateRegisterUser,
 } from "../middlewares/validation.middleware.js";
+
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { isEmailVerified } from "../middlewares/emailVerification.middleware.js";
 
 const router = Router();
 
+
+/* Authentication                                                             */
+
+
+// Register
 router.route("/register").post(
   upload.fields([
     {
       name: "avatar",
       maxCount: 1,
     },
-
     {
       name: "coverImage",
       maxCount: 1,
@@ -47,57 +53,107 @@ router.route("/register").post(
   registerUser
 );
 
+// Login
 router.route("/login").post(validateLoginUser, loginUser);
 
-//secured routes
+// Logout
 router.route("/logout").post(verifyJWT, logoutUser);
+
+// Refresh access token
 router.route("/refresh-token").post(refreshAccessToken);
-router
-  .route("/change-password")
-  .post(verifyJWT, isEmailVerified, validateChangedPassword, changePassword);
 
-router.patch("/update-about", verifyJWT, updateAbout);
 
-router.route("/forgot-password").post(forgotPassword);
-router.route("/reset-password/:token").post(resetPassword);
+/* Email Verification                                                         */
 
-router.route("/current-user").get(verifyJWT, getCurrentUser);
+
+// Verify email
 router.route("/verify-email/:token").get(verifyEmail);
 
-router.route("/change-email").post(verifyJWT, changeEmail);
-router.route("/verify-changed-email/:token").post(verifyEmailChange);
-
+// Resend verification email
 router
   .route("/resend-verification-email")
   .post(verifyJWT, resendVerificationEmail);
+
+
+/* Password Recovery                                                          */
+
+
+// Forgot password
+router.route("/forgot-password").post(forgotPassword);
+
+// Reset password
+router.route("/reset-password/:token").post(resetPassword);
+
+
+/* Current User / Account                                                     */
+
+
+// Get currently authenticated user
+router.route("/current-user").get(verifyJWT, getCurrentUser);
+
+// Change password
+router
+  .route("/change-password")
+  .post(
+    verifyJWT,
+    isEmailVerified,
+    validateChangedPassword,
+    changePassword
+  );
+
+// Change email
+router.route("/change-email").post(verifyJWT, changeEmail);
+
+// Verify changed email
+router.route("/verify-changed-email/:token").post(verifyEmailChange);
+
+
+/* Profile                                                                     */
+
+
+// Update user details
 router
   .route("/update-details")
   .patch(verifyJWT, isEmailVerified, updateUserDetails);
+
+// Update about/bio
+router.route("/update-about").patch(verifyJWT, updateAbout);
+
+// Update avatar / cover image
 router.route("/update-files").patch(
   verifyJWT,
   isEmailVerified,
-
   upload.fields([
     {
       name: "avatar",
       maxCount: 1,
     },
-
     {
       name: "coverImage",
       maxCount: 1,
     },
   ]),
-
   updateFiles
 );
+
+// Get user's channel/profile
 router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
+
+
+/* Watch History                                                               */
+
+
+// Get watch history
 router.route("/history").get(verifyJWT, getWatchHistory);
-router
-  .route("/history/clear")
-  .get(verifyJWT, isEmailVerified, clearWatchHistory);
+
+// Remove a specific video from history
 router
   .route("/history/clear/:videoId")
   .get(verifyJWT, isEmailVerified, removeVideoFromWatchHistory);
+
+// Clear entire watch history
+router
+  .route("/history/clear")
+  .get(verifyJWT, isEmailVerified, clearWatchHistory);
 
 export default router;

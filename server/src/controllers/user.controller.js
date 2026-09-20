@@ -17,30 +17,6 @@ import {
 } from "../services/email.service.js";
 import { options } from "../config/configurations.js";
 
-const generateAccessAndRefreshToken = async (userId, rememberMe) => {
-  try {
-    const user = await User.findById(userId);
-
-    if (!user) {
-      throw new APIError(404, "User not found");
-    }
-
-    const accessToken = user.generateAccessToken();
-    const refreshToken = user.generateRefreshToken(rememberMe);
-
-    user.refreshToken = refreshToken;
-
-    await user.save({ validateBeforeSave: false });
-
-    return { accessToken, refreshToken };
-  } catch (err) {
-    throw new APIError(
-      500,
-      "Something went wrong while generating access and refresh tokens"
-    );
-  }
-};
-
 const registerUser = asyncHandler(async (req, res) => {
   const { fullName, email, username, password } = req.body;
 
@@ -952,6 +928,30 @@ const removeVideoFromWatchHistory = asyncHandler(async (req, res) => {
       )
     );
 });
+
+const generateAccessAndRefreshToken = async (userId, rememberMe) => {
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      throw new APIError(404, "User not found");
+    }
+
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken(rememberMe);
+
+    user.refreshToken = refreshToken;
+
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (err) {
+    throw new APIError(
+      500,
+      "Something went wrong while generating access and refresh tokens"
+    );
+  }
+};
 
 export {
   registerUser,
