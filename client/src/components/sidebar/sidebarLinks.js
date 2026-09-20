@@ -1,4 +1,4 @@
-import { House, UserCircle } from "lucide-react";
+import { House, UserCircle, UsersRound } from "lucide-react";
 
 const youLinks = [
   {
@@ -12,6 +12,11 @@ const youLinks = [
     icon: UserCircle,
     label: "Your Channel",
   },
+  {
+    to: "/subscriptions",
+    icon: UsersRound,
+    label: "Subscriptions",
+  },
 ];
 
-export {youLinks};
+export { youLinks };
