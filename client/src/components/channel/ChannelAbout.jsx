@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Pencil, X, Check } from "lucide-react";
 import api from "../../services/api.js";
 
-function ChannelAbout({ about = "", onAboutUpdate }) {
+function ChannelAbout({
+  about = "",
+  onAboutUpdate,
+  isOwner = false,
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(about);
   const [saving, setSaving] = useState(false);
@@ -13,6 +17,8 @@ function ChannelAbout({ about = "", onAboutUpdate }) {
   }, [about]);
 
   const handleEdit = () => {
+    if (!isOwner) return;
+
     setValue(about);
     setError("");
     setIsEditing(true);
@@ -25,6 +31,8 @@ function ChannelAbout({ about = "", onAboutUpdate }) {
   };
 
   const handleSave = async () => {
+    if (!isOwner) return;
+
     const trimmedValue = value.trim();
 
     if (trimmedValue.length > 5000) {
@@ -36,18 +44,25 @@ function ChannelAbout({ about = "", onAboutUpdate }) {
       setSaving(true);
       setError("");
 
-      const response = await api.patch("/users/update-about", {
-        about: trimmedValue,
-      });
+      const response = await api.patch(
+        "/users/update-about",
+        {
+          about: trimmedValue,
+        },
+      );
 
-      const updatedAbout = response.data.data.about;
+      const updatedAbout =
+        response.data.data.about;
 
       setValue(updatedAbout);
       setIsEditing(false);
 
       onAboutUpdate?.(updatedAbout);
     } catch (err) {
-      console.error("Failed to update about:", err);
+      console.error(
+        "Failed to update about:",
+        err,
+      );
 
       setError(
         err.response?.data?.message ||
@@ -75,7 +90,7 @@ function ChannelAbout({ about = "", onAboutUpdate }) {
             About
           </h2>
 
-          {!isEditing && (
+          {isOwner && !isEditing && (
             <button
               type="button"
               onClick={handleEdit}
@@ -103,7 +118,7 @@ function ChannelAbout({ about = "", onAboutUpdate }) {
           )}
         </div>
 
-        {isEditing ? (
+        {isEditing && isOwner ? (
           <div className="mt-5">
             <textarea
               value={value}
@@ -210,7 +225,9 @@ function ChannelAbout({ about = "", onAboutUpdate }) {
               </p>
             ) : (
               <p className="text-sm text-gray-500">
-                You haven't added an About section yet.
+                {isOwner
+                  ? "You haven't added an About section yet."
+                  : "This channel hasn't added an About section yet."}
               </p>
             )}
           </div>

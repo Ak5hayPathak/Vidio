@@ -75,8 +75,7 @@ function Channel() {
         console.error("Failed to fetch channel data:", err);
 
         setError(
-          err.response?.data?.message ||
-            "Unable to load channel information.",
+          err.response?.data?.message || "Unable to load channel information.",
         );
       } finally {
         if (!controller.signal.aborted) {
@@ -113,12 +112,10 @@ function Channel() {
           channel={channel}
           stats={stats}
           formatCount={formatCount}
+          isOwner={true}
         />
 
-        <ChannelTabs
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-        />
+        <ChannelTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
         {error && (
           <div
@@ -144,6 +141,7 @@ function Channel() {
             videos={videos}
             channel={channel}
             formatCount={formatCount}
+            isOwner={true}
           />
         )}
 
@@ -163,6 +161,7 @@ function Channel() {
           <ChannelAbout
             about={about}
             onAboutUpdate={handleAboutUpdate}
+            isOwner={true}
           />
         )}
       </main>

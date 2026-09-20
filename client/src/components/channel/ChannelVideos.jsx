@@ -2,37 +2,49 @@ import { Link } from "react-router-dom";
 import VideoCard from "../../components/home/VideoCard.jsx";
 import EmptyVideos from "./EmptyVideos.jsx";
 
-function ChannelVideos({ videos, channel, formatCount }) {
+function ChannelVideos({
+  videos,
+  channel,
+  formatCount,
+  isOwner = false,
+}) {
   return (
     <section className="mt-8">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5 flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold">Videos</h2>
+          <h2 className="text-xl font-semibold">
+            Videos
+          </h2>
 
           <p className="mt-1 text-sm text-gray-500">
-            Videos uploaded to your channel
+            {isOwner
+              ? "Videos uploaded to your channel"
+              : `Videos uploaded by ${channel.name}`}
           </p>
         </div>
 
-        <Link
-          to="/upload"
-          className="
-            rounded-xl
-            border
-            border-white/10
-            bg-[#111318]
-            px-4
-            py-2
-            text-sm
-            font-medium
-            text-gray-300
-            transition
-            hover:bg-white/10
-            hover:text-white
-          "
-        >
-          Upload Video
-        </Link>
+        {isOwner && (
+          <Link
+            to="/upload"
+            className="
+              shrink-0
+              rounded-xl
+              border
+              border-white/10
+              bg-[#111318]
+              px-4
+              py-2
+              text-sm
+              font-medium
+              text-gray-300
+              transition
+              hover:bg-white/10
+              hover:text-white
+            "
+          >
+            Upload Video
+          </Link>
+        )}
       </div>
 
       {videos.length > 0 ? (
@@ -56,14 +68,16 @@ function ChannelVideos({ videos, channel, formatCount }) {
                 title: video.title,
                 channel: channel.name,
                 views: `${formatCount(video.views)} views`,
-                uploaded: new Date(video.createdAt).toLocaleDateString(),
+                uploaded: new Date(
+                  video.createdAt,
+                ).toLocaleDateString(),
                 duration: video.duration,
               }}
             />
           ))}
         </div>
       ) : (
-        <EmptyVideos />
+        <EmptyVideos isOwner={isOwner} />
       )}
     </section>
   );

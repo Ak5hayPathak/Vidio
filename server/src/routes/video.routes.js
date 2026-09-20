@@ -9,6 +9,7 @@ import {
   streamVideo,
   streamHLSFile,
   createStreamToken,
+  getVideosByUsername,
   searchVideos,
 } from "../controllers/video.controller.js";
 import {
@@ -47,6 +48,8 @@ router
   .get(verifyJWT, getVideoById)
   .delete(verifyJWT, isEmailVerified, deleteVideo)
   .patch(verifyJWT, isEmailVerified, upload.single("thumbnail"), updateVideo);
+
+router.route("/c/:username/videos").get(verifyJWT, getVideosByUsername);
 
 router
   .route("/toggle/publish/:videoId")

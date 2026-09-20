@@ -1,7 +1,7 @@
 import { Play } from "lucide-react";
 import { Link } from "react-router-dom";
 
-function EmptyVideos() {
+function EmptyVideos({ isOwner = false }) {
   return (
     <div
       className="
@@ -35,28 +35,34 @@ function EmptyVideos() {
         <Play size={24} />
       </div>
 
-      <h2 className="text-xl font-semibold">No videos yet</h2>
+      <h2 className="text-xl font-semibold">
+        No videos yet
+      </h2>
 
       <p className="mt-2 max-w-md text-sm text-gray-500">
-        Upload your first video and start building your channel.
+        {isOwner
+          ? "Upload your first video and start building your channel."
+          : "This channel hasn't uploaded any videos yet."}
       </p>
 
-      <Link
-        to="/upload"
-        className="
-          mt-6
-          rounded-xl
-          bg-red-600
-          px-5
-          py-2.5
-          text-sm
-          font-semibold
-          transition
-          hover:bg-red-700
-        "
-      >
-        Upload Video
-      </Link>
+      {isOwner && (
+        <Link
+          to="/upload"
+          className="
+            mt-6
+            rounded-xl
+            bg-red-600
+            px-5
+            py-2.5
+            text-sm
+            font-semibold
+            transition
+            hover:bg-red-700
+          "
+        >
+          Upload Video
+        </Link>
+      )}
     </div>
   );
 }

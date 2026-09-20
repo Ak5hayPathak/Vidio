@@ -156,6 +156,65 @@ const getAllVideos = asyncHandler(async (req, res) => {
     .json(new APIResponse(200, result, "Videos fetched successfully!"));
 });
 
+const getVideosByUsername = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+  if (!username?.trim()) {
+    throw new APIError(400, "username is missing");
+  }
+  let {
+    page = 1,
+    limit = 10,
+    query,
+    sortBy = "createdAt",
+    sortType = "desc",
+  } = req.query;
+  /* * Find the user by username first. */ const user = await User.findOne({
+    username: username.toLowerCase(),
+  }).select("_id");
+  if (!user) {
+    throw new APIError(404, "Channel does not exist");
+  }
+  const pipeline = [];
+  /* * Search by title or description. */ if (query) {
+    pipeline.push({
+      $match: {
+        $or: [
+          { title: { $regex: query, $options: "i" } },
+          { description: { $regex: query, $options: "i" } },
+        ],
+      },
+    });
+  }
+  /* * Only return published and completely processed videos. */ pipeline.push({
+    $match: { isPublished: true, processingStatus: "ready" },
+  });
+  /* * Filter videos by channel owner. */ pipeline.push({
+    $match: { owner: user._id },
+  });
+  /* * Sort videos. */ pipeline.push({
+    $sort: { [sortBy]: sortType === "asc" ? 1 : -1 },
+  });
+  /* * Get owner details. */ pipeline.push({
+    $lookup: {
+      from: "users",
+      localField: "owner",
+      foreignField: "_id",
+      as: "ownerDetails",
+      pipeline: [{ $project: { username: 1, avatar: 1 } }],
+    },
+  });
+  /* * Convert ownerDetails array into an object. */ pipeline.push({
+    $unwind: "$ownerDetails",
+  });
+  const result = await Video.aggregatePaginate(Video.aggregate(pipeline), {
+    page: Number(page),
+    limit: Number(limit),
+  });
+  return res
+    .status(200)
+    .json(new APIResponse(200, result, "Channel videos fetched successfully!"));
+});
+
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
 
@@ -653,4 +712,5 @@ export {
   streamHLSFile,
   createStreamToken,
   searchVideos,
+  getVideosByUsername,
 };

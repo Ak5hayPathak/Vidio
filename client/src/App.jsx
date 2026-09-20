@@ -1,4 +1,4 @@
-import { Routes, Route, Outlet, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Outlet } from "react-router-dom";
 import { useState } from "react";
 
 import Navbar from "./components/navbar/Navbar.jsx";
@@ -9,6 +9,7 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Home from "./pages/Home.jsx";
 import Channel from "./pages/Channel.jsx";
+import UserChannel from "./pages/UserChannel.jsx";
 import VerifyEmail from "./pages/VerifyEmail.jsx";
 import EditChannel from "./pages/EditChannel.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
@@ -57,22 +58,37 @@ function App() {
         {/* Protected application routes */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
+            {/* Home */}
             <Route path="/" element={<Home />} />
+
+            {/* Channels */}
             <Route path="/channel" element={<Channel />} />
+            <Route path="/channel/:username" element={<UserChannel />} />
             <Route path="/channel/edit" element={<EditChannel />} />
+
+            {/* Settings */}
             <Route path="/settings" element={<Settings />} />
 
             <Route
               path="/settings/account/change-email"
               element={<ChangeEmail />}
             />
+
             <Route
               path="/settings/account/change-password"
               element={<ChangePassword />}
             />
 
-            <Route path="/subscriptions" element={<Subscriptions />} />
-            <Route path="/subscriptions/manage" element={<ManageSubscriptions />} />
+            {/* Subscriptions */}
+            <Route
+              path="/subscriptions"
+              element={<Subscriptions />}
+            />
+
+            <Route
+              path="/subscriptions/manage"
+              element={<ManageSubscriptions />}
+            />
           </Route>
         </Route>
       </Routes>

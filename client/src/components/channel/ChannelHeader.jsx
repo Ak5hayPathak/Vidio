@@ -1,6 +1,12 @@
 import { Link } from "react-router-dom";
 
-function ChannelHeader({ channel, stats, formatCount }) {
+function ChannelHeader({
+  channel,
+  stats,
+  formatCount,
+  isOwner = false,
+  actions = null,
+}) {
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#111318]">
       {/* Cover */}
@@ -83,39 +89,47 @@ function ChannelHeader({ channel, stats, formatCount }) {
                 videos
               </span>
 
-              <span>
-                <strong className="text-white">
-                  {formatCount(stats.totalViews)}
-                </strong>{" "}
-                views
-              </span>
+              {stats.totalViews !== undefined && (
+                <span>
+                  <strong className="text-white">
+                    {formatCount(stats.totalViews)}
+                  </strong>{" "}
+                  views
+                </span>
+              )}
 
-              <span>
-                <strong className="text-white">
-                  {formatCount(stats.totalLikes)}
-                </strong>{" "}
-                likes
-              </span>
+              {stats.totalLikes !== undefined && (
+                <span>
+                  <strong className="text-white">
+                    {formatCount(stats.totalLikes)}
+                  </strong>{" "}
+                  likes
+                </span>
+              )}
             </div>
           </div>
 
           {/* Actions */}
           <div className="flex shrink-0 gap-3">
-            <Link
-              to="/channel/edit"
-              className="
-                rounded-xl
-                bg-red-600
-                px-5
-                py-2.5
-                text-sm
-                font-semibold
-                transition
-                hover:bg-red-700
-              "
-            >
-              Edit Channel
-            </Link>
+            {isOwner ? (
+              <Link
+                to="/channel/edit"
+                className="
+                  rounded-xl
+                  bg-red-600
+                  px-5
+                  py-2.5
+                  text-sm
+                  font-semibold
+                  transition
+                  hover:bg-red-700
+                "
+              >
+                Edit Channel
+              </Link>
+            ) : (
+              actions
+            )}
           </div>
         </div>
       </div>

@@ -1,113 +1,198 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import api from "../services/api.js";
-import { Link } from "react-router-dom";
 
 function Subscriptions() {
-  const { user } = useAuth();
+  const {
+    user,
+    loading: authLoading,
+  } = useAuth();
 
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user?._id) {
+      setChannels([]);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
     const fetchSubscriptions = async () => {
       try {
         setLoading(true);
         setError("");
-        const response = await api.get(`/subscriptions/u/${user._id}`);
-        setChannels(response.data.data.docs || []);
-      } catch (error) {
-        console.error("Failed to fetch subscriptions:", error);
-        setError(
-          error.response?.data?.message || "Failed to load your subscriptions.",
+
+        const response = await api.get(
+          `/subscriptions/u/${user._id}`,
+          {
+            signal: controller.signal,
+          },
         );
+
+        console.log(
+          "Subscriptions response:",
+          response.data,
+        );
+
+        const subscriptionData =
+          response.data?.data;
+
+        const subscriptionDocs =
+          subscriptionData?.docs || [];
+
+        setChannels(subscriptionDocs);
+      } catch (err) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        console.error(
+          "Failed to fetch subscriptions:",
+          err,
+        );
+
+        setError(
+          err.response?.data?.message ||
+            "Failed to load your subscriptions.",
+        );
+
+        setChannels([]);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
-    if (user?._id) {
-      fetchSubscriptions();
-    }
-  }, [user]);
+
+    fetchSubscriptions();
+
+    return () => controller.abort();
+  }, [user, authLoading]);
 
   return (
     <div className="min-h-screen bg-[#08090b] text-white">
-      <div className="flex">
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          {/* Page heading */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold sm:text-3xl">Subscriptions</h1>
+      <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        {/* Page heading */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold sm:text-3xl">
+            Subscriptions
+          </h1>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Latest videos from channels you follow
-            </p>
+          <p className="mt-1 text-sm text-gray-500">
+            Latest videos from channels you follow
+          </p>
+        </div>
+
+        {/* Subscribed channels */}
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">
+              Your channels
+            </h2>
+
+            <Link
+              to="/subscriptions/manage"
+              className="
+                text-sm
+                font-medium
+                text-red-500
+                transition
+                hover:text-red-400
+              "
+            >
+              Manage
+            </Link>
           </div>
 
-          {/* Subscribed channels */}
-          <section className="mb-10">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Your channels</h2>
-
-              <Link to="/subscriptions/manage">
-                <button
-                  className="
-                  text-sm
-                  font-medium
-                  text-red-500
-                  transition
-                  hover:text-red-400
-                "
-                >
-                  Manage
-                </button>
-              </Link>
+          {/* Loading */}
+          {loading && (
+            <div className="py-8 text-center text-sm text-gray-500">
+              Loading your channels...
             </div>
+          )}
 
-            {/* Loading */}
-            {loading && (
-              <div className="py-8 text-center text-sm text-gray-500">
-                Loading your channels...
-              </div>
-            )}
+          {/* Error */}
+          {!loading && error && (
+            <div
+              role="alert"
+              className="
+                rounded-xl
+                border
+                border-red-500/20
+                bg-red-500/10
+                px-4
+                py-4
+                text-center
+                text-sm
+                text-red-400
+              "
+            >
+              {error}
+            </div>
+          )}
 
-            {/* Error */}
-            {!loading && error && (
-              <div className="py-8 text-center text-sm text-red-500">
-                {error}
-              </div>
-            )}
-
-            {/* Empty state */}
-            {!loading && !error && channels.length === 0 && (
-              <div className="rounded-2xl border border-white/5 bg-[#111318] px-6 py-10 text-center">
+          {/* Empty state */}
+          {!loading &&
+            !error &&
+            channels.length === 0 && (
+              <div
+                className="
+                  rounded-2xl
+                  border
+                  border-white/5
+                  bg-[#111318]
+                  px-6
+                  py-10
+                  text-center
+                "
+              >
                 <p className="text-gray-400">
-                  You haven't subscribed to any channels yet.
+                  You haven't subscribed to any
+                  channels yet.
                 </p>
               </div>
             )}
 
-            {/* Channels */}
-            {!loading && !error && channels.length > 0 && (
+          {/* Channels */}
+          {!loading &&
+            !error &&
+            channels.length > 0 && (
               <div
                 className="
                   flex
                   gap-4
                   overflow-x-auto
                   pb-3
+                  scrollbar-thin
+                  scrollbar-track-transparent
+                  scrollbar-thumb-white/10
                 "
               >
                 {channels.map((subscription) => {
-                  const channel = subscription.channelDetails;
+                  const channel =
+                    subscription?.channelDetails;
+
+                  if (!channel?.username) {
+                    return null;
+                  }
 
                   return (
-                    <div
+                    <Link
                       key={subscription._id}
+                      to={`/channel/${channel.username}`}
                       className="
                         flex
-                        min-w-[120px]
+                        min-w-[140px]
                         shrink-0
-                        cursor-pointer
                         flex-col
                         items-center
                         rounded-2xl
@@ -127,9 +212,10 @@ function Subscriptions() {
                           flex
                           h-16
                           w-16
-                          overflow-hidden
+                          shrink-0
                           items-center
                           justify-center
+                          overflow-hidden
                           rounded-full
                           bg-red-600
                           text-xl
@@ -137,14 +223,28 @@ function Subscriptions() {
                           text-white
                         "
                       >
-                        {channel?.avatar ? (
+                        {channel.avatar ? (
                           <img
                             src={channel.avatar}
-                            alt={channel.username}
-                            className="h-full w-full object-cover"
+                            alt={
+                              channel.fullName ||
+                              channel.username
+                            }
+                            loading="lazy"
+                            className="
+                              h-full
+                              w-full
+                              object-cover
+                            "
                           />
                         ) : (
-                          channel?.username?.charAt(0).toUpperCase()
+                          (
+                            channel.fullName ||
+                            channel.username ||
+                            "?"
+                          )
+                            .charAt(0)
+                            .toUpperCase()
                         )}
                       </div>
 
@@ -152,27 +252,42 @@ function Subscriptions() {
                       <p
                         className="
                           mt-3
-                          max-w-full
+                          w-full
                           truncate
+                          text-center
                           text-sm
                           font-semibold
+                          text-white
                         "
+                        title={
+                          channel.fullName ||
+                          channel.username
+                        }
                       >
-                        {channel?.fullName || channel?.username}
+                        {channel.fullName ||
+                          channel.username}
                       </p>
 
                       {/* Username */}
-                      <p className="mt-1 max-w-full truncate text-xs text-gray-500">
-                        @{channel?.username}
+                      <p
+                        className="
+                          mt-1
+                          w-full
+                          truncate
+                          text-center
+                          text-xs
+                          text-gray-500
+                        "
+                      >
+                        @{channel.username}
                       </p>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
             )}
-          </section>
-        </main>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }
