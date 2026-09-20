@@ -75,13 +75,31 @@ function ChannelHeader({
             </p>
 
             <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-400">
-              <span>
-                <strong className="text-white">
-                  {formatCount(stats.subscribers)}
-                </strong>{" "}
-                subscribers
-              </span>
+              {/* Subscribers */}
+              {isOwner ? (
+                <Link
+                  to="/subscribers"
+                  className="
+                    rounded-md
+                    transition
+                    hover:text-white
+                  "
+                >
+                  <strong className="text-white">
+                    {formatCount(stats.subscribers)}
+                  </strong>{" "}
+                  subscribers
+                </Link>
+              ) : (
+                <span>
+                  <strong className="text-white">
+                    {formatCount(stats.subscribers)}
+                  </strong>{" "}
+                  subscribers
+                </span>
+              )}
 
+              {/* Videos */}
               <span>
                 <strong className="text-white">
                   {formatCount(stats.totalVideos)}
@@ -89,6 +107,7 @@ function ChannelHeader({
                 videos
               </span>
 
+              {/* Views */}
               {stats.totalViews !== undefined && (
                 <span>
                   <strong className="text-white">
@@ -98,6 +117,7 @@ function ChannelHeader({
                 </span>
               )}
 
+              {/* Likes */}
               {stats.totalLikes !== undefined && (
                 <span>
                   <strong className="text-white">

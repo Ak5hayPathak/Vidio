@@ -1,9 +1,4 @@
-import {
-  House,
-  UserCircle,
-  UsersRound,
-  History,
-} from "lucide-react";
+import { House, UserCircle, UsersRound, History } from "lucide-react";
 
 const youLinks = [
   {
@@ -17,18 +12,21 @@ const youLinks = [
     to: "/channel",
     icon: UserCircle,
     label: "Your Channel",
+    end: true,
   },
 
   {
     to: "/subscriptions",
     icon: UsersRound,
     label: "Subscriptions",
+    end: true,
   },
 
   {
     to: "/history",
     icon: History,
     label: "History",
+    end: true,
   },
 ];
 
