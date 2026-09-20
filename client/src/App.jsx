@@ -21,6 +21,7 @@ import VerifyEmailChange from "./pages/VerifyEmailChange.jsx";
 import ChangePassword from "./pages/ChangePassword.jsx";
 import Subscriptions from "./pages/Subscriptions.jsx";
 import ManageSubscriptions from "./pages/ManageSubscriptions.jsx";
+import History from "./pages/History.jsx";
 
 function AppLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -80,15 +81,15 @@ function App() {
             />
 
             {/* Subscriptions */}
-            <Route
-              path="/subscriptions"
-              element={<Subscriptions />}
-            />
+            <Route path="/subscriptions" element={<Subscriptions />} />
 
             <Route
               path="/subscriptions/manage"
               element={<ManageSubscriptions />}
             />
+
+            {/* History */}
+            <Route path="/history" element={<History />} />
           </Route>
         </Route>
       </Routes>

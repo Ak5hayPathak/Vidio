@@ -38,10 +38,10 @@ function Subscriptions() {
           },
         );
 
-        console.log(
-          "Subscriptions response:",
-          response.data,
-        );
+        // console.log(
+        //   "Subscriptions response:",
+        //   response.data,
+        // );
 
         const subscriptionData =
           response.data?.data;

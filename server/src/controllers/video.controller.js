@@ -226,14 +226,38 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new APIError(400, "Invalid video id!");
   }
 
-  const video = await Video.findById(videoId);
+  const videoObjectId = new mongoose.Types.ObjectId(videoId);
 
+  const video = await Video.findById(videoObjectId);
+
+  if (!video) {
+    throw new APIError(404, "Video not found!");
+  }
+
+  /*
+   * Update watch history
+   *
+   * If the video already exists:
+   * 1. Remove the old entry.
+   * 2. Add it again with the current timestamp.
+   *
+   * This guarantees that one video can only
+   * appear once in watch history.
+   */
   if (req.user?._id) {
+    await User.findByIdAndUpdate(req.user._id, {
+      $pull: {
+        watchHistory: {
+          video: videoObjectId,
+        },
+      },
+    });
+
     await User.findByIdAndUpdate(req.user._id, {
       $push: {
         watchHistory: {
-          video: new mongoose.Types.ObjectId(videoId),
-          watchedAt: new Date(), //attaches the exact date and time when the video was watched
+          video: videoObjectId,
+          watchedAt: new Date(),
         },
       },
     });
@@ -242,7 +266,7 @@ const getVideoById = asyncHandler(async (req, res) => {
   const aggregatedArrayOfVideo = await Video.aggregate([
     {
       $match: {
-        _id: new mongoose.Types.ObjectId(videoId),
+        _id: videoObjectId,
       },
     },
 

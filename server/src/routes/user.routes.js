@@ -149,11 +149,11 @@ router.route("/history").get(verifyJWT, getWatchHistory);
 // Remove a specific video from history
 router
   .route("/history/clear/:videoId")
-  .get(verifyJWT, isEmailVerified, removeVideoFromWatchHistory);
+  .delete(verifyJWT, isEmailVerified, removeVideoFromWatchHistory);
 
 // Clear entire watch history
 router
   .route("/history/clear")
-  .get(verifyJWT, isEmailVerified, clearWatchHistory);
+  .delete(verifyJWT, isEmailVerified, clearWatchHistory);
 
 export default router;
