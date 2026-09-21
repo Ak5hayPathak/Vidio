@@ -1,28 +1,28 @@
 import { Routes, Route, Outlet } from "react-router-dom";
 import { useState } from "react";
 
-import Navbar from "./components/navbar/Navbar.jsx";
-import Sidebar from "./components/sidebar/Sidebar.jsx";
-import ProtectedRoute from "./protectRoutes/protectedRoutes.jsx";
+import Navbar from "./layouts/components/navbar/Navbar.jsx";
+import Sidebar from "./layouts/components/sidebar/Sidebar.jsx";
+import ProtectedRoute from "./routes/protectedRoutes.jsx";
 
-import Login from "./pages/Login.jsx";
-import Register from "./pages/Register.jsx";
-import Home from "./pages/Home.jsx";
-import Channel from "./pages/Channel.jsx";
-import UserChannel from "./pages/UserChannel.jsx";
-import VerifyEmail from "./pages/VerifyEmail.jsx";
-import EditChannel from "./pages/EditChannel.jsx";
-import ForgotPassword from "./pages/ForgotPassword.jsx";
-import ResetPassword from "./pages/ResetPassword.jsx";
-import ChangeEmail from "./pages/ChangeEmail.jsx";
+import Login from "./features/auth/pages/Login.jsx";
+import Register from "./features/auth/pages/Register.jsx";
+import Home from "./features/home/pages/Home.jsx";
+import Channel from "./features/channel/pages/Channel.jsx";
+import UserChannel from "./features/channel/pages/UserChannel.jsx";
+import VerifyEmail from "./features/auth/pages/VerifyEmail.jsx";
+import EditChannel from "./features/channel/pages/EditChannel.jsx";
+import ForgotPassword from "./features/auth/pages/ForgotPassword.jsx";
+import ResetPassword from "./features/auth/pages/ResetPassword.jsx";
+import ChangeEmail from "./features/settings/pages/ChangeEmail.jsx";
 
-import Settings from "./pages/Settings.jsx";
-import VerifyEmailChange from "./pages/VerifyEmailChange.jsx";
-import ChangePassword from "./pages/ChangePassword.jsx";
-import Subscriptions from "./pages/Subscriptions.jsx";
-import ManageSubscriptions from "./pages/ManageSubscriptions.jsx";
-import History from "./pages/History.jsx";
-import Subscribers from "./pages/Subscribers.jsx";
+import Settings from "./features/settings/pages/Settings.jsx";
+import VerifyEmailChange from "./features/auth/pages/VerifyEmailChange.jsx";
+import ChangePassword from "./features/settings/pages/ChangePassword.jsx";
+import Subscriptions from "./features/subscriptions/pages/Subscriptions.jsx";
+import ManageSubscriptions from "./features/subscriptions/pages/ManageSubscriptions.jsx";
+import History from "./features/history/pages/History.jsx";
+import Subscribers from "./features/subscriptions/pages/Subscribers.jsx";
 
 function AppLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
