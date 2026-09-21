@@ -175,55 +175,65 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     throw new APIError(401, "Unauthorized request");
   }
 
+  let decodedToken;
+
   try {
-    const decodedToken = await jwt.verify(
+    decodedToken = jwt.verify(
       incomingRefreshToken,
       process.env.REFRESH_TOKEN_SECRET
     );
-
-    const user = await User.findById(decodedToken?._id);
-
-    if (!user) {
-      throw new APIError(401, "Invalid Refresh Token");
-    }
-
-    if (decodedToken.sessionVersion !== user.sessionVersion) {
-      throw new APIError(401, "Session expired. Please login again.");
-    }
-
-    if (incomingRefreshToken !== user?.refreshToken) {
-      throw new APIError(401, "Refresh token is expired or used");
-    }
-
-    const rememberMe = decodedToken.rememberMe;
-
-    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-      user._id,
-      rememberMe
-    );
-
-    const refreshTokenOptions = {
-      ...options,
-      maxAge: rememberMe ? 10 * 24 * 60 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000,
-    };
-
-    return res
-      .status(200)
-      .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", refreshToken, refreshTokenOptions)
-      .json(
-        new APIResponse(
-          200,
-          {
-            accessToken,
-            refreshToken,
-          },
-          "Access token refreshed successfully"
-        )
-      );
   } catch (error) {
-    throw new APIError(401, error?.message || "Invalid Refresh Token");
+    if (error.name === "TokenExpiredError") {
+      throw new APIError(401, "Refresh token expired");
+    }
+
+    if (error.name === "JsonWebTokenError") {
+      throw new APIError(401, "Invalid refresh token");
+    }
+
+    throw error;
   }
+
+  const user = await User.findById(decodedToken?._id);
+
+  if (!user) {
+    throw new APIError(401, "Invalid refresh token");
+  }
+
+  if (decodedToken.sessionVersion !== user.sessionVersion) {
+    throw new APIError(401, "Session expired. Please login again.");
+  }
+
+  if (incomingRefreshToken !== user.refreshToken) {
+    throw new APIError(401, "Refresh token is expired or used");
+  }
+
+  const rememberMe = decodedToken.rememberMe;
+
+  const { accessToken, refreshToken } =
+    await generateAccessAndRefreshToken(user._id, rememberMe);
+
+  const refreshTokenOptions = {
+    ...options,
+    maxAge: rememberMe
+      ? 10 * 24 * 60 * 60 * 1000
+      : 1 * 24 * 60 * 60 * 1000,
+  };
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, refreshTokenOptions)
+    .json(
+      new APIResponse(
+        200,
+        {
+          accessToken,
+          refreshToken,
+        },
+        "Access token refreshed successfully"
+      )
+    );
 });
 
 const verifyEmail = asyncHandler(async (req, res) => {

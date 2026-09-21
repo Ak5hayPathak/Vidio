@@ -56,6 +56,7 @@ dependency-graph.html
 depgraph.js
 portCheck.js
 /rough
+/zscripts
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
 
