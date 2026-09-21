@@ -40,10 +40,10 @@ function Subscribers() {
           },
         );
 
-        console.log(
-          "Subscribers response:",
-          response.data,
-        );
+        // console.log(
+        //   "Subscribers response:",
+        //   response.data,
+        // );
 
         const data = response.data?.data;
 

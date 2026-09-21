@@ -127,10 +127,6 @@ const getChannelSubscribers = asyncHandler(async (req, res) => {
     }
   );
 
-  if (subscribers.docs.length === 0) {
-    throw new APIError(404, "No subscribers found");
-  }
-
   return res
     .status(200)
     .json(
@@ -199,9 +195,9 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     }
   );
 
-  if (subscribedChannels.docs.length === 0) {
-    throw new APIError(404, "No subscribed channel found");
-  }
+  // if (subscribedChannels.docs.length === 0) {
+  //   throw new APIError(404, "No subscribed channel found");
+  // }
 
   return res
     .status(200)
