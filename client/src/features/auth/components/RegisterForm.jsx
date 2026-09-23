@@ -1,5 +1,5 @@
 import { useState } from "react";
-import api from "../../../services/api.js";
+import { registerUser } from "../auth.service.js";
 import { Mail } from "lucide-react";
 
 const RegisterForm = () => {
@@ -57,9 +57,9 @@ const RegisterForm = () => {
     try {
       setLoading(true);
 
-      const response = await api.post("/users/register", data);
+      const response = await registerUser(data);
 
-      console.log(response.data);
+      console.log(response);
       setRegistered(true);
     } catch (error) {
       console.error(error);

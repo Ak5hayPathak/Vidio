@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Lock, CheckCircle, Eye, EyeOff } from "lucide-react";
 
-import api from "../../../services/api.js";
+import { resetPassword } from "../auth.service.js";
 
 function ResetPassword() {
   const { token } = useParams();
@@ -31,14 +31,9 @@ function ResetPassword() {
     setLoading(true);
 
     try {
-      const response = await api.post(`/users/reset-password/${token}`, {
-        newPassword,
-        confirmPassword,
-      });
+      const response = await resetPassword(token, newPassword, confirmPassword);
 
-      setMessage(
-        response.data.message || "Password reset successfully!",
-      );
+      setMessage(response.message || "Password reset successfully!");
 
       setNewPassword("");
       setConfirmPassword("");
@@ -81,8 +76,8 @@ function ResetPassword() {
           </h1>
 
           <p className="mt-3 text-gray-500">
-            Your password has been successfully reset. You can now sign in
-            with your new password.
+            Your password has been successfully reset. You can now sign in with
+            your new password.
           </p>
 
           <Link
@@ -234,9 +229,7 @@ function ResetPassword() {
                   hover:text-gray-300
                 "
                 aria-label={
-                  showNewPassword
-                    ? "Hide new password"
-                    : "Show new password"
+                  showNewPassword ? "Hide new password" : "Show new password"
                 }
               >
                 {showNewPassword ? <EyeOff size={19} /> : <Eye size={19} />}
@@ -303,11 +296,7 @@ function ResetPassword() {
                     : "Show confirm password"
                 }
               >
-                {showConfirmPassword ? (
-                  <EyeOff size={19} />
-                ) : (
-                  <Eye size={19} />
-                )}
+                {showConfirmPassword ? <EyeOff size={19} /> : <Eye size={19} />}
               </button>
             </div>
           </div>

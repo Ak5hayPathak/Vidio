@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { User, Lock, Bell, Shield, Palette, LogOut } from "lucide-react";
 
 import SettingItem from "../components/SettingItem.jsx";
 import Toggle from "../components/Toggle.jsx";
 import LogoutConfirm from "../../auth/components/LogoutConfirm.jsx";
 
-import api from "../../../services/api.js";
-import { useNavigate } from "react-router-dom";
+import { logoutUser } from "../settings.service.js";
 
 const Settings = () => {
   const [notifications, setNotifications] = useState(true);
@@ -19,7 +18,7 @@ const Settings = () => {
 
   const handleLogout = async () => {
     try {
-      await api.post("/users/logout");
+      await logoutUser();
 
       setLogoutOpen(false);
       navigate("/login");
@@ -190,25 +189,25 @@ const Settings = () => {
                   type="button"
                   onClick={() => setLogoutOpen(true)}
                   className="
-    flex
-    shrink-0
-    items-center
-    justify-center
-    gap-2
-    rounded-lg
-    border
-    border-white/10
-    bg-[#08090b]
-    px-4
-    py-2
-    text-sm
-    font-medium
-    text-gray-300
-    transition
-    hover:border-red-600/30
-    hover:bg-red-600/10
-    hover:text-red-500
-  "
+                    flex
+                    shrink-0
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-lg
+                    border
+                    border-white/10
+                    bg-[#08090b]
+                    px-4
+                    py-2
+                    text-sm
+                    font-medium
+                    text-gray-300
+                    transition
+                    hover:border-red-600/30
+                    hover:bg-red-600/10
+                    hover:text-red-500
+                  "
                 >
                   <LogOut size={16} />
                   Sign out

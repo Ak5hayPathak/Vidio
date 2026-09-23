@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext.jsx";
 
 import AuthFooter from "./AuthFooter.jsx";
-import api from "../../../services/api.js";
+import { loginUser } from "../auth.service.js";
 
 const LoginForm = () => {
   const navigate = useNavigate();
@@ -48,16 +48,12 @@ const LoginForm = () => {
     };
 
     try {
-      const response = await api.post("/users/login", loginData);
+      const response = await loginUser(loginData);
 
-      setUser(response.data.data.user);
-
-      //console.log("Login successful:", response.data);
+      setUser(response.data.user);
 
       navigate("/");
     } catch (error) {
-      //console.error("Login failed:", error);
-
       setError(
         error.response?.data?.message ||
           "Something went wrong while logging in.",
@@ -71,9 +67,7 @@ const LoginForm = () => {
     <div className="w-full max-w-md">
       {/* Heading */}
       <div className="mb-8">
-        <h2 className="text-3xl font-semibold tracking-tight">
-          Welcome back
-        </h2>
+        <h2 className="text-3xl font-semibold tracking-tight">Welcome back</h2>
 
         <p className="mt-2 text-gray-500">
           Sign in to your Vidio account to continue.
@@ -203,9 +197,7 @@ const LoginForm = () => {
                 transition
                 hover:text-gray-300
               "
-              aria-label={
-                showPassword ? "Hide password" : "Show password"
-              }
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? (
                 <svg
@@ -248,9 +240,7 @@ const LoginForm = () => {
               className="h-4 w-4 cursor-pointer accent-red-600"
             />
 
-            <span className="text-sm text-gray-500">
-              Remember me
-            </span>
+            <span className="text-sm text-gray-500">Remember me</span>
           </label>
         </div>
 

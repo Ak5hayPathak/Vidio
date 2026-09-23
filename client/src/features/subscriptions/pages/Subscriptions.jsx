@@ -1,14 +1,26 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+
 import { useAuth } from "../../../context/AuthContext.jsx";
-import api from "../../../services/api.js";
+
+import { getUserSubscriptions } from "../subscriptions.service.js";
+
+import SubscriptionChannel from "../components/SubscriptionChannel.jsx";
 
 function Subscriptions() {
-  const { user, loading: authLoading } = useAuth();
+  const {
+    user,
+    loading: authLoading,
+  } = useAuth();
 
-  const [channels, setChannels] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [channels, setChannels] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
 
   useEffect(() => {
     if (authLoading) {
@@ -21,36 +33,34 @@ function Subscriptions() {
       return;
     }
 
-    const controller = new AbortController();
+    const controller =
+      new AbortController();
 
     const fetchSubscriptions = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const response = await api.get(`/subscriptions/u/${user._id}`, {
-          signal: controller.signal,
-        });
+        const subscriptionData =
+          await getUserSubscriptions(
+            user._id,
+            controller.signal,
+          );
 
-        // console.log(
-        //   "Subscriptions response:",
-        //   response.data,
-        // );
-
-        const subscriptionData = response.data?.data;
-
-        const subscriptionDocs = subscriptionData?.docs || [];
-
-        setChannels(subscriptionDocs);
-      } catch (err) {
+        setChannels(subscriptionData);
+      } catch (error) {
         if (controller.signal.aborted) {
           return;
         }
 
-        console.error("Failed to fetch subscriptions:", err);
+        console.error(
+          "Failed to fetch subscriptions:",
+          error,
+        );
 
         setError(
-          err.response?.data?.message || "Failed to load your subscriptions.",
+          error.response?.data?.message ||
+            "Failed to load your subscriptions.",
         );
 
         setChannels([]);
@@ -64,14 +74,16 @@ function Subscriptions() {
     fetchSubscriptions();
 
     return () => controller.abort();
-  }, [user, authLoading]);
+  }, [user?._id, authLoading]);
 
   return (
     <div className="min-h-screen bg-[#08090b] text-white">
       <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
         {/* Page heading */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold sm:text-3xl">Subscriptions</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">
+            Subscriptions
+          </h1>
 
           <p className="mt-1 text-sm text-gray-500">
             Latest videos from channels you follow
@@ -81,7 +93,9 @@ function Subscriptions() {
         {/* Subscribed channels */}
         <section>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Your channels</h2>
+            <h2 className="text-lg font-semibold">
+              Your channels
+            </h2>
 
             <Link
               to="/subscriptions/manage"
@@ -125,9 +139,11 @@ function Subscriptions() {
           )}
 
           {/* Empty state */}
-          {!loading && !error && channels.length === 0 && (
-            <div
-              className="
+          {!loading &&
+            !error &&
+            channels.length === 0 && (
+              <div
+                className="
                   rounded-2xl
                   border
                   border-white/5
@@ -136,17 +152,20 @@ function Subscriptions() {
                   py-10
                   text-center
                 "
-            >
-              <p className="text-gray-400">
-                You haven't subscribed to any channels yet.
-              </p>
-            </div>
-          )}
+              >
+                <p className="text-gray-400">
+                  You haven't subscribed to any
+                  channels yet.
+                </p>
+              </div>
+            )}
 
           {/* Channels */}
-          {!loading && !error && channels.length > 0 && (
-            <div
-              className="
+          {!loading &&
+            !error &&
+            channels.length > 0 && (
+              <div
+                className="
                   flex
                   gap-4
                   overflow-x-auto
@@ -155,104 +174,17 @@ function Subscriptions() {
                   scrollbar-track-transparent
                   scrollbar-thumb-white/10
                 "
-            >
-              {channels.map((subscription) => {
-                const channel = subscription?.channelDetails;
-
-                if (!channel?.username) {
-                  return null;
-                }
-
-                return (
-                  <Link
-                    key={subscription._id}
-                    to={`/channel/${channel.username}`}
-                    className="
-                        flex
-                        min-w-[140px]
-                        shrink-0
-                        flex-col
-                        items-center
-                        rounded-2xl
-                        border
-                        border-white/5
-                        bg-[#111318]
-                        px-4
-                        py-5
-                        transition
-                        hover:border-white/10
-                        hover:bg-[#15171d]
-                      "
-                  >
-                    {/* Avatar */}
-                    <div
-                      className="
-                          flex
-                          h-16
-                          w-16
-                          shrink-0
-                          items-center
-                          justify-center
-                          overflow-hidden
-                          rounded-full
-                          bg-red-600
-                          text-xl
-                          font-bold
-                          text-white
-                        "
-                    >
-                      {channel.avatar ? (
-                        <img
-                          src={channel.avatar}
-                          alt={channel.fullName || channel.username}
-                          loading="lazy"
-                          className="
-                              h-full
-                              w-full
-                              object-cover
-                            "
-                        />
-                      ) : (
-                        (channel.fullName || channel.username || "?")
-                          .charAt(0)
-                          .toUpperCase()
-                      )}
-                    </div>
-
-                    {/* Channel name */}
-                    <p
-                      className="
-                          mt-3
-                          w-full
-                          truncate
-                          text-center
-                          text-sm
-                          font-semibold
-                          text-white
-                        "
-                      title={channel.fullName || channel.username}
-                    >
-                      {channel.fullName || channel.username}
-                    </p>
-
-                    {/* Username */}
-                    <p
-                      className="
-                          mt-1
-                          w-full
-                          truncate
-                          text-center
-                          text-xs
-                          text-gray-500
-                        "
-                    >
-                      @{channel.username}
-                    </p>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+              >
+                {channels.map(
+                  (subscription) => (
+                    <SubscriptionChannel
+                      key={subscription._id}
+                      subscription={subscription}
+                    />
+                  ),
+                )}
+              </div>
+            )}
         </section>
       </main>
     </div>

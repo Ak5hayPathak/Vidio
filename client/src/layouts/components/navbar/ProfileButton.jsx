@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { User, Settings, LogOut } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
-import api from "../../../services/api.js";
+import { logoutUser } from "../../../features/settings/settings.service.js";
 import LogoutConfirm from "../../../features/auth/components/LogoutConfirm.jsx";
 
 function ProfileButton({ user }) {
@@ -27,7 +27,7 @@ function ProfileButton({ user }) {
 
   const handleLogout = async () => {
     try {
-      await api.post("/users/logout");
+      await logoutUser();
 
       setLogoutOpen(false);
       navigate("/login");

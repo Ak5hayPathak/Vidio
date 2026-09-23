@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "../../../layouts/components/navbar/Navbar.jsx";
-import api from "../../../services/api.js";
+import { verifyChangedEmail } from "../auth.service.js";
 
 const VerifyEmailChange = () => {
   const [searchParams] = useSearchParams();
 
   const token = searchParams.get("token");
 
-  const [status, setStatus] = useState(
-    token ? "verifying" : "error",
-  );
+  const [status, setStatus] = useState(token ? "verifying" : "error");
 
   const [message, setMessage] = useState("");
 
@@ -24,14 +22,12 @@ const VerifyEmailChange = () => {
 
     const verifyEmailChange = async () => {
       try {
-        const response = await api.post(
-          `/users/verify-changed-email/${token}`,
-        );
+        const response = await verifyChangedEmail(token);
 
         setStatus("success");
 
         setMessage(
-          response.data.message ||
+          response.message ||
             "Your email address has been changed successfully.",
         );
       } catch (error) {
@@ -88,8 +84,7 @@ const VerifyEmailChange = () => {
                 </h1>
 
                 <p className="mt-2 text-sm leading-6 text-gray-400">
-                  Please wait while we confirm your new email
-                  address.
+                  Please wait while we confirm your new email address.
                 </p>
               </div>
             )}
@@ -123,8 +118,8 @@ const VerifyEmailChange = () => {
                 </p>
 
                 <p className="mt-3 text-sm leading-6 text-gray-500">
-                  Your session has been signed out for security.
-                  Please log in again using your new email address.
+                  Your session has been signed out for security. Please log in
+                  again using your new email address.
                 </p>
 
                 <Link
@@ -171,13 +166,10 @@ const VerifyEmailChange = () => {
                   !
                 </div>
 
-                <h1 className="mt-5 text-2xl font-bold">
-                  Verification Failed
-                </h1>
+                <h1 className="mt-5 text-2xl font-bold">Verification Failed</h1>
 
                 <p className="mt-2 text-sm leading-6 text-gray-400">
-                  {message ||
-                    "Invalid or expired email verification link."}
+                  {message || "Invalid or expired email verification link."}
                 </p>
 
                 <Link

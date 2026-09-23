@@ -22,17 +22,17 @@ function VideoCard({ video }) {
           {/* Duration */}
           <span
             className="
-    absolute
-    bottom-2
-    right-2
-    rounded
-    bg-black/80
-    px-1.5
-    py-0.5
-    text-xs
-    font-medium
-    text-white
-  "
+              absolute
+              bottom-2
+              right-2
+              rounded
+              bg-black/80
+              px-1.5
+              py-0.5
+              text-xs
+              font-medium
+              text-white
+            "
           >
             {`${Math.floor(video.duration / 60)}:${String(
               Math.floor(video.duration % 60),
@@ -73,7 +73,8 @@ function VideoCard({ video }) {
               leading-5
               text-white
               transition
-              group-hover:text-gray-600
+              duration-200
+              hover:text-gray-300
             "
           >
             {video.title}
@@ -87,7 +88,9 @@ function VideoCard({ video }) {
               truncate
               text-sm
               text-gray-400
-              group-hover:text-red-500
+              transition
+              duration-200
+              hover:text-gray-200
             "
           >
             {video.channel}

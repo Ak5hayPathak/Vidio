@@ -1,9 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Trash2 } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { useAuth } from "../../../context/AuthContext.jsx";
-import api from "../../../services/api.js";
-import VideoCard from "../../video/components/VideoCard.jsx";
+
+import {
+  getWatchHistory,
+  clearWatchHistory,
+  removeFromWatchHistory,
+} from "../history.service.js";
+
+import { groupHistoryByDate } from "../history.utils.js";
+
+import HistorySection from "../components/HistorySection.jsx";
 
 function History() {
   const { user, loading: authLoading } = useAuth();
@@ -13,9 +24,7 @@ function History() {
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState("");
 
-  /*
-   * Fetch watch history
-   */
+  //Fetch Watch History
   useEffect(() => {
     if (authLoading) {
       return;
@@ -34,15 +43,8 @@ function History() {
         setLoading(true);
         setError("");
 
-        const response = await api.get(
-          "/users/history",
-          {
-            signal: controller.signal,
-          },
-        );
-
         const historyData =
-          response.data?.data || [];
+          await getWatchHistory(controller.signal);
 
         setHistory(historyData);
       } catch (err) {
@@ -80,96 +82,13 @@ function History() {
    * Yesterday
    * Earlier
    */
-  const groupedHistory = useMemo(() => {
-    const today = [];
-    const yesterday = [];
-    const earlier = [];
-
-    const now = new Date();
-
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-    );
-
-    const startOfYesterday = new Date(
-      startOfToday,
-    );
-
-    startOfYesterday.setDate(
-      startOfYesterday.getDate() - 1,
-    );
-
-    history.forEach((item) => {
-      if (!item?.video || !item?.watchedAt) {
-        return;
-      }
-
-      const watchedAt = new Date(
-        item.watchedAt,
-      );
-
-      if (watchedAt >= startOfToday) {
-        today.push(item);
-      } else if (
-        watchedAt >= startOfYesterday
-      ) {
-        yesterday.push(item);
-      } else {
-        earlier.push(item);
-      }
-    });
-
-    return {
-      today,
-      yesterday,
-      earlier,
-    };
-  }, [history]);
-
-  /*
-   * Convert backend video data
-   * into the format expected by VideoCard.
-   */
-  const formatVideo = useCallback(
-    (item) => {
-      const video = item.video;
-
-      const owner =
-        video?.ownerDetails ||
-        video?.owner ||
-        {};
-
-      return {
-        id: video?._id,
-
-        thumbnail: video?.thumbnail,
-
-        title: video?.title || "Untitled video",
-
-        channel:
-          owner?.fullName ||
-          owner?.username ||
-          "Unknown channel",
-
-        views: `${Number(
-          video?.views || 0,
-        ).toLocaleString()} views`,
-
-        uploaded: new Date(
-          item.watchedAt,
-        ).toLocaleDateString(),
-
-        duration: video?.duration,
-      };
-    },
-    [],
+  const groupedHistory = useMemo(
+    () => groupHistoryByDate(history),
+    [history],
   );
 
-  /*
-   * Clear complete watch history
-   */
+  // Clear complete watch history
+
   const handleClearHistory = async () => {
     if (clearing || history.length === 0) {
       return;
@@ -179,7 +98,7 @@ function History() {
       setClearing(true);
       setError("");
 
-      await api.delete("/users/history/clear");
+      await clearWatchHistory();
 
       setHistory([]);
     } catch (err) {
@@ -197,21 +116,15 @@ function History() {
     }
   };
 
-  /*
-   * Remove a single video from history
-   */
-  const handleRemoveVideo = async (
-    videoId,
-  ) => {
+  //Remove a single video from history
+  
+  const handleRemoveVideo = async (videoId) => {
     try {
-      await api.delete(
-        `/users/history/clear/${videoId}`,
-      );
+      await removeFromWatchHistory(videoId);
 
       setHistory((current) =>
         current.filter(
-          (item) =>
-            item.video?._id !== videoId,
+          (item) => item.video?._id !== videoId,
         ),
       );
     } catch (err) {
@@ -220,64 +133,6 @@ function History() {
         err,
       );
     }
-  };
-
-  const renderVideos = (items) => {
-    return (
-      <div
-        className="
-          grid
-          grid-cols-1
-          gap-x-5
-          gap-y-8
-          sm:grid-cols-2
-          lg:grid-cols-3
-          xl:grid-cols-4
-        "
-      >
-        {items.map((item) => (
-          <div
-            key={`${item.video._id}-${item.watchedAt}`}
-            className="relative"
-          >
-            <VideoCard
-              video={formatVideo(item)}
-            />
-
-            {/* Remove from history */}
-            <button
-              type="button"
-              onClick={() =>
-                handleRemoveVideo(
-                  item.video._id,
-                )
-              }
-              title="Remove from history"
-              className="
-                absolute
-                right-2
-                top-2
-                z-10
-                flex
-                h-8
-                w-8
-                items-center
-                justify-center
-                rounded-full
-                bg-black/70
-                text-gray-400
-                backdrop-blur
-                transition
-                hover:bg-red-600
-                hover:text-white
-              "
-            >
-              <Trash2 size={15} />
-            </button>
-          </div>
-        ))}
-      </div>
-    );
   };
 
   return (
@@ -357,75 +212,56 @@ function History() {
         )}
 
         {/* Empty history */}
-        {!loading && !error && history.length === 0 && (
-          <div
-            className="
-              flex
-              min-h-80
-              items-center
-              justify-center
-              rounded-2xl
-              border
-              border-dashed
-              border-white/10
-              bg-[#111318]
-              px-6
-              text-center
-            "
-          >
-            <div>
-              <h2 className="text-xl font-semibold">
-                No watch history
-              </h2>
+        {!loading &&
+          !error &&
+          history.length === 0 && (
+            <div
+              className="
+                flex
+                min-h-80
+                items-center
+                justify-center
+                rounded-2xl
+                border
+                border-dashed
+                border-white/10
+                bg-[#111318]
+                px-6
+                text-center
+              "
+            >
+              <div>
+                <h2 className="text-xl font-semibold">
+                  No watch history
+                </h2>
 
-              <p className="mt-2 text-sm text-gray-500">
-                Videos you watch will appear here.
-              </p>
+                <p className="mt-2 text-sm text-gray-500">
+                  Videos you watch will appear here.
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* History */}
         {!loading && history.length > 0 && (
           <>
-            {/* Today */}
-            {groupedHistory.today.length > 0 && (
-              <section className="mb-10">
-                <h2 className="mb-5 text-lg font-semibold">
-                  Today
-                </h2>
+            <HistorySection
+              title="Today"
+              items={groupedHistory.today}
+              onRemove={handleRemoveVideo}
+            />
 
-                {renderVideos(
-                  groupedHistory.today,
-                )}
-              </section>
-            )}
+            <HistorySection
+              title="Yesterday"
+              items={groupedHistory.yesterday}
+              onRemove={handleRemoveVideo}
+            />
 
-            {/* Yesterday */}
-            {groupedHistory.yesterday.length > 0 && (
-              <section className="mb-10">
-                <h2 className="mb-5 text-lg font-semibold">
-                  Yesterday
-                </h2>
-
-                {renderVideos(
-                  groupedHistory.yesterday,
-                )}
-              </section>
-            )}
-
-            {/* Earlier */}
-            {groupedHistory.earlier.length > 0 && (
-              <section className="mb-10">
-                <h2 className="mb-5 text-lg font-semibold">
-                  Earlier
-                </h2>
-
-                {renderVideos(
-                  groupedHistory.earlier,
-                )}
-              </section>
-            )}
+            <HistorySection
+              title="Earlier"
+              items={groupedHistory.earlier}
+              onRemove={handleRemoveVideo}
+            />
           </>
         )}
       </main>

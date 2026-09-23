@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Mail } from "lucide-react";
 
-import api from "../../../services/api.js";
+import { forgotPassword } from "../auth.service.js";
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -18,12 +18,10 @@ function ForgotPassword() {
     setLoading(true);
 
     try {
-      const response = await api.post("/users/forgot-password", {
-        email: email.trim(),
-      });
+      const response = await forgotPassword(email);
 
       setMessage(
-        response.data.message ||
+        response.message ||
           "If an account exists with this email, a password reset link has been sent.",
       );
     } catch (error) {
@@ -36,7 +34,7 @@ function ForgotPassword() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#08090b] px-4 py-10 text-white">

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "../../../layouts/components/navbar/Navbar.jsx";
-import api from "../../../services/api.js";
+import { verifyEmail, resendVerificationEmail } from "../auth.service.js";
 
 const VerifyEmail = () => {
   const [searchParams] = useSearchParams();
@@ -23,12 +23,11 @@ const VerifyEmail = () => {
 
     const verifyEmail = async () => {
       try {
-        const response = await api.get(`/users/verify-email/${token}`);
+        const response = await verifyEmail(token);
 
         setStatus("success");
         setMessage(
-          response.data.message ||
-            "Your email has been verified successfully.",
+          response.message || "Your email has been verified successfully.",
         );
       } catch (error) {
         setStatus("error");
@@ -51,17 +50,14 @@ const VerifyEmail = () => {
     setMessage("");
 
     try {
-      await api.post("/users/resend-verification-email", {
-        email: email.trim(),
-      });
+      await resendVerificationEmail(email);
 
       setMessage(
         "A new verification email has been sent. Please check your inbox.",
       );
     } catch (error) {
       setMessage(
-        error.response?.data?.message ||
-          "Unable to resend verification email.",
+        error.response?.data?.message || "Unable to resend verification email.",
       );
     } finally {
       setResending(false);
@@ -104,9 +100,7 @@ const VerifyEmail = () => {
                   ↻
                 </div>
 
-                <h1 className="mt-5 text-2xl font-bold">
-                  Verifying Email
-                </h1>
+                <h1 className="mt-5 text-2xl font-bold">Verifying Email</h1>
 
                 <p className="mt-2 text-sm leading-6 text-gray-400">
                   Please wait while we verify your email address.
@@ -134,9 +128,7 @@ const VerifyEmail = () => {
                   ✓
                 </div>
 
-                <h1 className="mt-5 text-2xl font-bold">
-                  Email Verified
-                </h1>
+                <h1 className="mt-5 text-2xl font-bold">Email Verified</h1>
 
                 <p className="mt-2 text-sm leading-6 text-gray-400">
                   {message}
@@ -186,9 +178,7 @@ const VerifyEmail = () => {
                   !
                 </div>
 
-                <h1 className="mt-5 text-2xl font-bold">
-                  Verification Failed
-                </h1>
+                <h1 className="mt-5 text-2xl font-bold">Verification Failed</h1>
 
                 <p className="mt-2 text-sm leading-6 text-gray-400">
                   {message}
@@ -239,9 +229,7 @@ const VerifyEmail = () => {
                     ✉
                   </div>
 
-                  <h1 className="mt-5 text-2xl font-bold">
-                    Verify Your Email
-                  </h1>
+                  <h1 className="mt-5 text-2xl font-bold">Verify Your Email</h1>
 
                   <p className="mt-2 text-sm leading-6 text-gray-400">
                     Enter your email address and we'll send you a new
@@ -300,9 +288,7 @@ const VerifyEmail = () => {
                       disabled:opacity-50
                     "
                   >
-                    {resending
-                      ? "Sending..."
-                      : "Resend Verification Email"}
+                    {resending ? "Sending..." : "Resend Verification Email"}
                   </button>
                 </form>
 
@@ -313,9 +299,7 @@ const VerifyEmail = () => {
                 )}
 
                 <div className="mt-6 border-t border-white/10 pt-5 text-center">
-                  <p className="text-sm text-gray-500">
-                    Already verified?
-                  </p>
+                  <p className="text-sm text-gray-500">Already verified?</p>
 
                   <Link
                     to="/login"

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../../context/AuthContext.jsx";
-import api from "../../../services/api.js";
+
+import {
+  getChannelStats,
+  getChannelVideos,
+} from "../channel.service.js";
 
 import ChannelLoading from "../components/ChannelLoading.jsx";
 import ChannelLoggedOut from "../components/ChannelLoggedOut.jsx";
@@ -58,24 +62,21 @@ function Channel() {
         setLoading(true);
         setError("");
 
-        const [statsResponse, videosResponse] = await Promise.all([
-          api.get("/dashboard/stats", {
-            signal: controller.signal,
-          }),
-          api.get("/dashboard/videos", {
-            signal: controller.signal,
-          }),
+        const [stats, videos] = await Promise.all([
+          getChannelStats(controller.signal),
+          getChannelVideos(controller.signal),
         ]);
 
-        setStats(statsResponse.data.data);
-        setVideos(videosResponse.data.data.docs || []);
+        setStats(stats);
+        setVideos(videos);
       } catch (err) {
         if (controller.signal.aborted) return;
 
         console.error("Failed to fetch channel data:", err);
 
         setError(
-          err.response?.data?.message || "Unable to load channel information.",
+          err.response?.data?.message ||
+            "Unable to load channel information.",
         );
       } finally {
         if (!controller.signal.aborted) {
@@ -115,7 +116,10 @@ function Channel() {
           isOwner={true}
         />
 
-        <ChannelTabs activeTab={activeTab} onTabChange={handleTabChange} />
+        <ChannelTabs
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+        />
 
         {error && (
           <div
