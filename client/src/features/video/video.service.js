@@ -27,4 +27,40 @@ async function recordVideoView(videoId, sessionId) {
   return response.data.data;
 }
 
-export { getHlsFileUrl, getStreamToken, getStreamUrl, getVideo, recordVideoView };
+const updateVideo = async ({
+  videoId,
+  title,
+  description,
+  tags,
+  thumbnail,
+}) => {
+  const formData = new FormData();
+
+  formData.append("title", title);
+  formData.append("description", description);
+  formData.append("tags", tags);
+
+  if (thumbnail) {
+    formData.append("thumbnail", thumbnail);
+  }
+
+  const response = await api.patch(`/videos/${videoId}`, formData);
+
+  return response.data;
+};
+
+const togglePublishStatus = async (videoId) => {
+  const response = await api.patch(`/videos/toggle/publish/${videoId}`);
+
+  return response.data;
+};
+
+export {
+  getHlsFileUrl,
+  getStreamToken,
+  getStreamUrl,
+  getVideo,
+  recordVideoView,
+  updateVideo,
+  togglePublishStatus,
+};

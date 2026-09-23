@@ -73,6 +73,7 @@ function ChannelVideos({
                 ).toLocaleDateString(),
                 duration: video.duration,
               }}
+              isOwner={isOwner}
             />
           ))}
         </div>

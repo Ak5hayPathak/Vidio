@@ -5,8 +5,8 @@ import useVideoControls from "../hooks/useVideoControls.js";
 
 import { recordVideoView } from "../video.service.js";
 
-import VideoPlayerOverlay from "./VideoPlayerOverlay.jsx";
-import VideoControls from "./VideoControls.jsx";
+import VideoPlayerOverlay from "./player/VideoPlayerOverlay.jsx";
+import VideoControls from "./player/VideoControls.jsx";
 
 function VideoPlayer({ videoId }) {
   const playerRef = useRef(null);
