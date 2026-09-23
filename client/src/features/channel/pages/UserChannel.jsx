@@ -1,21 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Check, UsersRound } from "lucide-react";
+
 import { useAuth } from "../../../context/AuthContext.jsx";
-import api from "../../../services/api.js";
 
 import ChannelLoading from "../components/ChannelLoading.jsx";
 import ChannelTabs from "../components/ChannelTabs.jsx";
 import ChannelHeader from "../components/ChannelHeader.jsx";
 import ChannelVideos from "../components/ChannelVideos.jsx";
 import ChannelAbout from "../components/ChannelAbout.jsx";
+import ChannelSubscribeButton from "../components/ChannelSubscribeButton.jsx";
 
-const numberFormatter = new Intl.NumberFormat("en-US", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
+import {
+  getUserChannel,
+  getUserChannelVideos,
+  toggleSubscription,
+} from "../channel.service.js";
 
-const formatCount = (value) => numberFormatter.format(value || 0);
+import { formatChannel, formatCount } from "../channel.utils.js";
 
 function UserChannel() {
   const { username } = useParams();
@@ -33,37 +34,10 @@ function UserChannel() {
 
   const [loading, setLoading] = useState(true);
   const [subscribeLoading, setSubscribeLoading] = useState(false);
+
   const [error, setError] = useState("");
 
   const [activeTab, setActiveTab] = useState("Videos");
-
-  const channel = useMemo(
-    () => ({
-      name:
-        channelData?.fullName ||
-        channelData?.username ||
-        "",
-
-      username: channelData?.username
-        ? `@${channelData.username}`
-        : "",
-
-      avatar: channelData?.avatar,
-
-      cover: channelData?.coverImage,
-
-      about: channelData?.about || "",
-
-      initial: (
-        channelData?.fullName ||
-        channelData?.username ||
-        "?"
-      )
-        .charAt(0)
-        .toUpperCase(),
-    }),
-    [channelData],
-  );
 
   useEffect(() => {
     if (authLoading || !username) return;
@@ -75,53 +49,30 @@ function UserChannel() {
         setLoading(true);
         setError("");
 
-        const [
-          channelResponse,
-          videosResponse,
-        ] = await Promise.all([
-          api.get(`/users/c/${username}`, {
-            signal: controller.signal,
-          }),
+        const [channelDataResponse, videosData] = await Promise.all([
+          getUserChannel(username, controller.signal),
 
-          api.get(`/videos/c/${username}/videos`, {
-            signal: controller.signal,
-          }),
+          getUserChannelVideos(username, controller.signal),
         ]);
-
-        const channelDataResponse =
-          channelResponse.data.data;
-
-        const videosData =
-          videosResponse.data.data;
 
         setChannelData(channelDataResponse);
 
-        setSubscribed(
-          channelDataResponse?.isSubscribed || false,
-        );
+        setSubscribed(channelDataResponse?.isSubscribed || false);
 
         setStats({
-          subscribers:
-            channelDataResponse?.subscribersCount || 0,
+          subscribers: channelDataResponse?.subscribersCount || 0,
 
-          totalVideos:
-            videosData?.totalDocs || 0,
+          totalVideos: videosData?.totalDocs || 0,
         });
 
-        setVideos(
-          videosData?.docs || [],
-        );
+        setVideos(videosData?.docs || []);
       } catch (err) {
         if (controller.signal.aborted) return;
 
-        console.error(
-          "Failed to fetch channel data:",
-          err,
-        );
+        console.error("Failed to fetch channel data:", err);
 
         setError(
-          err.response?.data?.message ||
-            "Unable to load channel information.",
+          err.response?.data?.message || "Unable to load channel information.",
         );
       } finally {
         if (!controller.signal.aborted) {
@@ -136,11 +87,7 @@ function UserChannel() {
   }, [username, authLoading]);
 
   const handleSubscribe = useCallback(async () => {
-    if (
-      !user ||
-      !channelData?._id ||
-      subscribeLoading
-    ) {
+    if (!user || !channelData?._id || subscribeLoading) {
       return;
     }
 
@@ -152,14 +99,9 @@ function UserChannel() {
       setSubscribeLoading(true);
       setError("");
 
-      const response = await api.post(
-        `/subscriptions/c/${channelData._id}`,
-      );
+      const data = await toggleSubscription(channelData._id);
 
-      const data = response.data.data;
-
-      const isNowSubscribed =
-        data?.isSubscribed ?? !subscribed;
+      const isNowSubscribed = data?.isSubscribed ?? !subscribed;
 
       setSubscribed(isNowSubscribed);
 
@@ -167,29 +109,17 @@ function UserChannel() {
         ...current,
         subscribers: Math.max(
           0,
-          current.subscribers +
-            (isNowSubscribed ? 1 : -1),
+          current.subscribers + (isNowSubscribed ? 1 : -1),
         ),
       }));
     } catch (err) {
-      console.error(
-        "Failed to toggle subscription:",
-        err,
-      );
+      console.error("Failed to toggle subscription:", err);
 
-      setError(
-        err.response?.data?.message ||
-          "Unable to update subscription.",
-      );
+      setError(err.response?.data?.message || "Unable to update subscription.");
     } finally {
       setSubscribeLoading(false);
     }
-  }, [
-    user,
-    channelData,
-    subscribeLoading,
-    subscribed,
-  ]);
+  }, [user, channelData, subscribeLoading, subscribed]);
 
   const handleTabChange = useCallback((tab) => {
     setActiveTab(tab);
@@ -204,19 +134,18 @@ function UserChannel() {
       <div className="min-h-screen bg-[#08090b] text-white">
         <main className="flex min-h-[70vh] items-center justify-center px-6">
           <div className="text-center">
-            <h1 className="text-xl font-semibold">
-              Channel not found
-            </h1>
+            <h1 className="text-xl font-semibold">Channel not found</h1>
 
             <p className="mt-2 text-sm text-gray-500">
-              {error ||
-                "Unable to find this channel."}
+              {error || "Unable to find this channel."}
             </p>
           </div>
         </main>
       </div>
     );
   }
+
+  const channel = formatChannel(channelData);
 
   const isOwner = user?._id === channelData._id;
 
@@ -231,51 +160,17 @@ function UserChannel() {
           isOwner={isOwner}
           actions={
             !isOwner && (
-              <button
-                type="button"
-                onClick={handleSubscribe}
-                disabled={subscribeLoading}
-                className={`
-                  flex
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-xl
-                  px-5
-                  py-2.5
-                  text-sm
-                  font-semibold
-                  transition
-                  disabled:cursor-not-allowed
-                  disabled:opacity-60
-                  ${
-                    subscribed
-                      ? "bg-gray-800 text-white hover:bg-gray-700"
-                      : "bg-red-600 text-white hover:bg-red-700"
-                  }
-                `}
-              >
-                {subscribed ? (
-                  <>
-                    <Check size={17} />
-                    Subscribed
-                  </>
-                ) : (
-                  <>
-                    <UsersRound size={17} />
-                    Subscribe
-                  </>
-                )}
-              </button>
+              <ChannelSubscribeButton
+                subscribed={subscribed}
+                loading={subscribeLoading}
+                onSubscribe={handleSubscribe}
+              />
             )
           }
         />
 
         {/* Tabs */}
-        <ChannelTabs
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-        />
+        <ChannelTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
         {/* Error */}
         {error && (
@@ -323,10 +218,7 @@ function UserChannel() {
 
         {/* About */}
         {activeTab === "About" && (
-          <ChannelAbout
-            about={channel.about}
-            isOwner={isOwner}
-          />
+          <ChannelAbout about={channel.about} isOwner={isOwner} />
         )}
       </main>
     </div>

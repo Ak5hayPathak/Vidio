@@ -13,12 +13,7 @@ import ChannelTabs from "../components/ChannelTabs.jsx";
 import ChannelVideos from "../components/ChannelVideos.jsx";
 import ChannelAbout from "../components/ChannelAbout.jsx";
 
-const numberFormatter = new Intl.NumberFormat("en-US", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
-
-const formatCount = (value) => numberFormatter.format(value || 0);
+import { formatCount, formatChannel } from "../channel.utils.js";
 
 function Channel() {
   const { user, loading: authLoading } = useAuth();

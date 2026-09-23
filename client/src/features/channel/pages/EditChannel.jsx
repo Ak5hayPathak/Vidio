@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 import { useAuth } from "../../../context/AuthContext.jsx";
-import api from "../../../services/api.js";
 
 import ChannelLoading from "../components/ChannelLoading.jsx";
 import ChannelLoggedOut from "../components/ChannelLoggedOut.jsx";
 import ChannelImageEditor from "../components/ChannelImageEditor.jsx";
 import ChannelDetailsForm from "../components/ChannelDetailsForm.jsx";
 
-import { ArrowLeft } from "lucide-react";
-
-const UPDATE_DETAILS_ROUTE = "/users/update-details";
-const UPDATE_FILES_ROUTE = "/users/update-files";
+import {
+  updateChannelDetails,
+  updateChannelFiles,
+} from "../channel.service.js";
 
 function EditChannel() {
   const { user, setUser, loading: authLoading } = useAuth();
@@ -53,17 +53,17 @@ function EditChannel() {
     try {
       setDetailsLoading(true);
 
-      const response = await api.patch(UPDATE_DETAILS_ROUTE, {
-        fullName: fullName.trim(),
-        username: username.trim(),
-      });
+      const response = await updateChannelDetails(
+        fullName.trim(),
+        username.trim(),
+      );
 
-      const updatedUser = response.data.data;
+      const updatedUser = response.data;
 
       setUser(updatedUser);
 
       setDetailsMessage(
-        response.data.message || "Account details updated successfully.",
+        response.message || "Account details updated successfully.",
       );
     } catch (error) {
       console.error("Failed to update account details:", error);
@@ -98,9 +98,9 @@ function EditChannel() {
         formData.append("coverImage", coverImage);
       }
 
-      const response = await api.patch(UPDATE_FILES_ROUTE, formData);
+      const response = await updateChannelFiles(formData);
 
-      const updatedUser = response.data.data;
+      const updatedUser = response.data;
 
       setUser(updatedUser);
 
@@ -108,7 +108,7 @@ function EditChannel() {
       setCoverImage(null);
 
       setFilesMessage(
-        response.data.message || "Profile images updated successfully.",
+        response.message || "Profile images updated successfully.",
       );
     } catch (error) {
       console.error("Failed to update profile images:", error);
@@ -129,7 +129,9 @@ function EditChannel() {
     return <ChannelLoggedOut />;
   }
 
-  const avatarPreview = avatar ? URL.createObjectURL(avatar) : user.avatar;
+  const avatarPreview = avatar
+    ? URL.createObjectURL(avatar)
+    : user.avatar;
 
   const coverPreview = coverImage
     ? URL.createObjectURL(coverImage)
@@ -162,7 +164,9 @@ function EditChannel() {
               Back to Channel
             </Link>
 
-            <h1 className="text-2xl font-bold sm:text-3xl">Edit Channel</h1>
+            <h1 className="text-2xl font-bold sm:text-3xl">
+              Edit Channel
+            </h1>
 
             <p className="mt-1 text-sm text-gray-500">
               Update your channel information and appearance.
@@ -178,8 +182,12 @@ function EditChannel() {
             filesLoading={filesLoading}
             filesError={filesError}
             filesMessage={filesMessage}
-            onAvatarChange={(e) => setAvatar(e.target.files?.[0] || null)}
-            onCoverChange={(e) => setCoverImage(e.target.files?.[0] || null)}
+            onAvatarChange={(e) =>
+              setAvatar(e.target.files?.[0] || null)
+            }
+            onCoverChange={(e) =>
+              setCoverImage(e.target.files?.[0] || null)
+            }
             onSave={handleFilesSubmit}
           />
 
