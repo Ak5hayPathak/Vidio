@@ -23,6 +23,7 @@ import Subscriptions from "./features/subscriptions/pages/Subscriptions.jsx";
 import ManageSubscriptions from "./features/subscriptions/pages/ManageSubscriptions.jsx";
 import History from "./features/history/pages/History.jsx";
 import Subscribers from "./features/subscriptions/pages/Subscribers.jsx";
+import Watch from "./features/video/pages/Watch.jsx";
 
 function AppLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -93,6 +94,9 @@ function App() {
 
             {/* History */}
             <Route path="/history" element={<History />} />
+
+            {/* Video */}
+            <Route path="/watch/:videoId" element={<Watch/>} />
           </Route>
         </Route>
       </Routes>
