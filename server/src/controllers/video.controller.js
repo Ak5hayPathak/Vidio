@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { Video } from "../models/video.model.js";
+import { VideoView } from "../models/videoView.model.js";
 import { SearchHistory } from "../models/searchHistory.model.js";
 import { User } from "../models/user.model.js";
 import { APIError } from "../utils/APIError.js";
@@ -725,10 +726,89 @@ const searchVideos = asyncHandler(async (req, res) => {
     .json(new APIResponse(200, result, "Search results fetched successfully!"));
 });
 
+const recordVideoView = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+  const { sessionId } = req.body;
+
+  if (!videoId) {
+    throw new APIError(400, "Video id is required!");
+  }
+
+  if (!mongoose.isValidObjectId(videoId)) {
+    throw new APIError(400, "Invalid video id!");
+  }
+
+  if (!sessionId) {
+    throw new APIError(400, "Session id is required!");
+  }
+
+  if (!req.user?._id) {
+    throw new APIError(401, "Authentication required!");
+  }
+
+  const videoObjectId = new mongoose.Types.ObjectId(videoId);
+  const viewerId = req.user._id;
+
+  const video = await Video.findById(videoObjectId);
+
+  if (!video) {
+    throw new APIError(404, "Video not found!");
+  }
+
+  const existingView = await VideoView.findOne({
+    video: videoObjectId,
+    viewer: viewerId,
+    sessionId,
+  });
+
+  if (existingView) {
+    return res.status(200).json(
+      new APIResponse(
+        200,
+        {
+          counted: false,
+          views: video.views,
+        },
+        "View already recorded for this session."
+      )
+    );
+  }
+
+  await VideoView.create({
+    video: videoObjectId,
+    viewer: viewerId,
+    sessionId,
+  });
+
+  const updatedVideo = await Video.findByIdAndUpdate(
+    videoObjectId,
+    {
+      $inc: {
+        views: 1,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  return res.status(200).json(
+    new APIResponse(
+      200,
+      {
+        counted: true,
+        views: updatedVideo.views,
+      },
+      "Video view recorded successfully."
+    )
+  );
+});
+
 export {
   getAllVideos,
   publishAVideo,
   getVideoById,
+  recordVideoView,
   updateVideo,
   deleteVideo,
   togglePublishStatus,

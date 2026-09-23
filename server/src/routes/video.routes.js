@@ -3,6 +3,7 @@ import {
   deleteVideo,
   getAllVideos,
   getVideoById,
+  recordVideoView,
   publishAVideo,
   togglePublishStatus,
   updateVideo,
@@ -48,6 +49,8 @@ router
   .get(verifyJWT, getVideoById)
   .delete(verifyJWT, isEmailVerified, deleteVideo)
   .patch(verifyJWT, isEmailVerified, upload.single("thumbnail"), updateVideo);
+
+router.post("/:videoId/view", verifyJWT, recordVideoView);
 
 router.route("/c/:username/videos").get(verifyJWT, getVideosByUsername);
 
