@@ -3,6 +3,7 @@ import {
   getSubscribedChannels,
   getChannelSubscribers,
   toggleSubscription,
+  checkSubscriptionStatus,
 } from "../controllers/subscription.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { isEmailVerified } from "../middlewares/emailVerification.middleware.js";
@@ -13,5 +14,6 @@ router.use(verifyJWT, isEmailVerified); // Apply verifyJWT middleware to all rou
 router.route("/c/:channelId").post(toggleSubscription);
 router.route("/s/:channelId").get(getChannelSubscribers);
 router.route("/u/:userId").get(getSubscribedChannels);
+router.get("/status/:channelId", verifyJWT, checkSubscriptionStatus);
 
 export default router;

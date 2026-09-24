@@ -210,4 +210,46 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     );
 });
 
-export { toggleSubscription, getSubscribedChannels, getChannelSubscribers };
+const checkSubscriptionStatus = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new APIError(401, "Unauthorized request!");
+  }
+
+  const { channelId } = req.params;
+
+  if (!channelId) {
+    throw new APIError(400, "Channel id is required!");
+  }
+
+  if (!mongoose.isValidObjectId(channelId)) {
+    throw new APIError(400, "Invalid channel id!");
+  }
+
+  const channel = await User.findById(channelId).select("_id");
+
+  if (!channel) {
+    throw new APIError(404, "Channel not found!");
+  }
+
+  const subscription = await Subscription.exists({
+    channel: channelId,
+    subscriber: req.user._id,
+  });
+
+  return res.status(200).json(
+    new APIResponse(
+      200,
+      {
+        isSubscribed: Boolean(subscription),
+      },
+      "Subscription status fetched successfully"
+    )
+  );
+});
+
+export {
+  toggleSubscription,
+  getSubscribedChannels,
+  getChannelSubscribers,
+  checkSubscriptionStatus,
+};

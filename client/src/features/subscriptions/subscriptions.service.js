@@ -12,6 +12,12 @@ async function unsubscribeFromChannel(channelId) {
   return response.data;
 }
 
+async function toggleSubscription(channelId) {
+  const response = await api.post(`/subscriptions/c/${channelId}`);
+
+  return response.data;
+}
+
 async function getSubscribers(userId, signal) {
   const response = await api.get(`/subscriptions/s/${userId}`, { signal });
 
@@ -22,4 +28,16 @@ async function getSubscribers(userId, signal) {
   return Array.isArray(subscriberList) ? subscriberList : [];
 }
 
-export { getUserSubscriptions, unsubscribeFromChannel, getSubscribers };
+const getSubscriptionStatus = async (channelId) => {
+  const response = await api.get(`/subscriptions/status/${channelId}`);
+
+  return response.data;
+};
+
+export {
+  getUserSubscriptions,
+  unsubscribeFromChannel,
+  getSubscribers,
+  getSubscriptionStatus,
+  toggleSubscription,
+};

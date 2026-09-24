@@ -1,29 +1,60 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { toggleSubscription } from "../../channel/channel.service.js";
+import { useAuth } from "../../../context/AuthContext.jsx";
+
+import {
+  getSubscriptionStatus,
+  toggleSubscription,
+} from "../../subscriptions/subscriptions.service.js";
 
 function VideoChannel({ video }) {
+  const { user } = useAuth();
+
   const channel = video.owner;
 
-  const [isSubscribed, setIsSubscribed] = useState(
-    video.isSubscribed || false,
-  );
+  const isOwner = user?._id === channel?._id;
 
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] = useState(true);
+
+  useEffect(() => {
+    const checkSubscriptionStatus = async () => {
+      if (!channel?._id || isOwner) {
+        setCheckingSubscription(false);
+        return;
+      }
+
+      try {
+        setCheckingSubscription(true);
+
+        const response = await getSubscriptionStatus(channel._id);
+
+        setIsSubscribed(response.data?.isSubscribed ?? false);
+      } catch (error) {
+        console.error("Failed to check subscription status:", error);
+
+        setIsSubscribed(false);
+      } finally {
+        setCheckingSubscription(false);
+      }
+    };
+
+    checkSubscriptionStatus();
+  }, [channel?._id, isOwner]);
 
   const handleSubscribe = async () => {
-    if (!channel?._id || loading) return;
+    if (!channel?._id || loading || checkingSubscription || isOwner) {
+      return;
+    }
 
     try {
       setLoading(true);
 
-      const data = await toggleSubscription(channel._id);
+      const response = await toggleSubscription(channel._id);
 
-      const isNowSubscribed =
-        data?.isSubscribed ?? !isSubscribed;
-
-      setIsSubscribed(isNowSubscribed);
+      setIsSubscribed((previous) => !previous);
     } catch (error) {
       console.error("Failed to toggle subscription:", error);
     } finally {
@@ -44,28 +75,39 @@ function VideoChannel({ video }) {
       <div className="min-w-0">
         <Link
           to={`/channel/${channel.username}`}
-          className="block truncate text-sm font-semibold text-white hover:underline"
+          className="
+            block
+            truncate
+            text-sm
+            font-semibold
+            text-white
+            hover:underline
+          "
         >
           {channel.fullName}
         </Link>
 
-        <p className="text-xs text-gray-400">
-          @{channel.username}
-        </p>
+        <p className="text-xs text-gray-400">@{channel.username}</p>
       </div>
 
-      <button
-        type="button"
-        onClick={handleSubscribe}
-        disabled={loading}
-        className={`ml-6 rounded-lg px-4 py-2 text-sm font-semibold transition ${
-          isSubscribed
-            ? "bg-gray-800 text-white hover:bg-gray-700"
-            : "bg-red-600 text-white hover:bg-red-700"
-        } disabled:cursor-not-allowed disabled:opacity-60`}
-      >
-        {isSubscribed ? "Subscribed" : "Subscribe"}
-      </button>
+      {!isOwner && (
+        <button
+          type="button"
+          onClick={handleSubscribe}
+          disabled={loading || checkingSubscription}
+          className={`ml-6 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            isSubscribed
+              ? "bg-gray-800 text-white hover:bg-gray-700"
+              : "bg-red-600 text-white hover:bg-red-700"
+          } disabled:cursor-not-allowed disabled:opacity-60`}
+        >
+          {checkingSubscription
+            ? "Loading..."
+            : isSubscribed
+              ? "Subscribed"
+              : "Subscribe"}
+        </button>
+      )}
     </div>
   );
 }

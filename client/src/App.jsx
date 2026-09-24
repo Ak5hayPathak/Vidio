@@ -98,7 +98,7 @@ function App() {
 
             {/* Video */}
             <Route path="/video/watch/:videoId" element={<Watch/>} />
-            <Route path="/videos/edit/:videoId" element={<EditVideo/>} />
+            <Route path="/video/edit/:videoId" element={<EditVideo/>} />
           </Route>
         </Route>
       </Routes>
