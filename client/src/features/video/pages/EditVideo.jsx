@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 
 import EditVideoForm from "../components/edit/EditVideoForm.jsx";
 
@@ -8,6 +8,7 @@ import {
   getVideo,
   updateVideo,
   togglePublishStatus,
+  deleteVideo,
 } from "../video.service.js";
 
 const EditVideo = () => {
@@ -24,6 +25,7 @@ const EditVideo = () => {
 
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -45,7 +47,9 @@ const EditVideo = () => {
       } catch (error) {
         console.error("Failed to fetch video:", error);
 
-        setError(error.response?.data?.message || "Failed to load video.");
+        setError(
+          error.response?.data?.message || "Failed to load video."
+        );
       } finally {
         setLoading(false);
       }
@@ -103,9 +107,48 @@ const EditVideo = () => {
     } catch (error) {
       console.error("Failed to update video:", error);
 
-      setError(error.response?.data?.message || "Unable to update video.");
+      setError(
+        error.response?.data?.message || "Unable to update video."
+      );
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (isDeleting || isSubmitting) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${video.title}"? This action cannot be undone.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      setMessage("");
+      setError("");
+
+      const response = await deleteVideo(videoId);
+
+      setMessage(response?.message || "Video deleted successfully.");
+
+      // Give the success message a moment before navigating.
+      setTimeout(() => {
+        navigate("/your-videos");
+      }, 500);
+    } catch (error) {
+      console.error("Failed to delete video:", error);
+
+      setError(
+        error.response?.data?.message || "Unable to delete video."
+      );
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -154,7 +197,7 @@ const EditVideo = () => {
           {/* Header */}
           <div className="mb-8">
             <Link
-              to="/your-videos"
+              to="/channel"
               className="
                 mb-4
                 inline-flex
@@ -170,7 +213,9 @@ const EditVideo = () => {
               Back to Your Videos
             </Link>
 
-            <h1 className="text-2xl font-bold sm:text-3xl">Edit Video</h1>
+            <h1 className="text-2xl font-bold sm:text-3xl">
+              Edit Video
+            </h1>
 
             <p className="mt-1 text-sm text-gray-500">
               Update your video's information and visibility.
@@ -215,6 +260,7 @@ const EditVideo = () => {
             </div>
           )}
 
+          {/* Edit Form */}
           <EditVideoForm
             existingVideo={video}
             title={title}
@@ -228,8 +274,65 @@ const EditVideo = () => {
             thumbnail={thumbnail}
             setThumbnail={setThumbnail}
             onSubmit={handleSubmit}
-            isSubmitting={isSubmitting}
+            isSubmitting={isSubmitting || isDeleting}
           />
+
+          {/* Delete Section */}
+          <div
+            className="
+              mt-8
+              rounded-2xl
+              border
+              border-red-600/20
+              bg-red-600/5
+              p-5
+              sm:p-6
+            "
+          >
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-white">
+                  Delete Video
+                </h2>
+
+                <p className="mt-1 max-w-xl text-sm text-gray-500">
+                  Permanently delete this video and its associated data.
+                  This action cannot be undone.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting || isSubmitting}
+                className="
+                  inline-flex
+                  shrink-0
+                  items-center
+                  justify-center
+                  gap-2
+                  rounded-xl
+                  border
+                  border-red-600/30
+                  bg-red-600/10
+                  px-5
+                  py-2.5
+                  text-sm
+                  font-semibold
+                  text-red-400
+                  transition
+                  hover:bg-red-600
+                  hover:text-white
+                  disabled:cursor-not-allowed
+                  disabled:opacity-50
+                "
+              >
+                <Trash2 size={17} />
+
+                {isDeleting ? "Deleting..." : "Delete Video"}
+              </button>
+            </div>
+          </div>
         </div>
       </main>
     </div>

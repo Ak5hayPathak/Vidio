@@ -55,6 +55,11 @@ const togglePublishStatus = async (videoId) => {
   return response.data;
 };
 
+const deleteVideo = async (videoId) => {
+  const response = await api.delete(`/videos/${videoId}`);
+  return response.data.data;
+}
+
 export {
   getHlsFileUrl,
   getStreamToken,
@@ -63,4 +68,5 @@ export {
   recordVideoView,
   updateVideo,
   togglePublishStatus,
+  deleteVideo,
 };
