@@ -1,24 +1,41 @@
 import fs from "fs";
+
 import path from "path";
+
 import {
-  PutObjectCommand,
   GetObjectCommand,
   ListObjectVersionsCommand,
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
+
+import { Upload } from "@aws-sdk/lib-storage";
+
 import { b2Client } from "../config/b2Client.js";
+
 import { APIError } from "../utils/APIError.js";
 
-const uploadFileToB2 = async (filePath, key) => {
+const uploadFileToB2 = async (filePath, key, onProgress) => {
   const fileStream = fs.createReadStream(filePath);
 
-  await b2Client.send(
-    new PutObjectCommand({
+  const fileSize = fs.statSync(filePath).size;
+
+  const upload = new Upload({
+    client: b2Client,
+
+    params: {
       Bucket: process.env.B2_BUCKET_NAME,
       Key: key,
       Body: fileStream,
-    })
-  );
+      ContentLength: fileSize,
+    },
+  });
+
+  // Track the number of bytes uploaded for this file
+  upload.on("httpUploadProgress", (progress) => {
+    onProgress?.(progress.loaded || 0);
+  });
+
+  await upload.done();
 };
 
 //recursively collects and returns file paths from HLS directory
@@ -47,6 +64,7 @@ const deleteVideoDirectoryFromB2 = async (videoId) => {
   const prefix = `videos/${videoId}/`;
 
   let keyMarker;
+
   let versionIdMarker;
 
   try {
@@ -79,25 +97,47 @@ const deleteVideoDirectoryFromB2 = async (videoId) => {
           })
         );
 
-        console.log(`Deleted ${objectsToDelete.length} file versions from B2`);
+        console.log(
+          `Deleted ${objectsToDelete.length} file versions from B2`
+        );
       }
 
       keyMarker = listResponse.NextKeyMarker;
+
       versionIdMarker = listResponse.NextVersionIdMarker;
     } while (keyMarker);
 
     console.log(`Deleted all existing versions for video: ${videoId}`);
   } catch (error) {
     console.error("Failed to delete video versions from B2: ");
+
     throw error;
   }
 };
 
 //to upload hls on backblaze
-const uploadDirectoryToB2 = async (directoryPath, videoId, concurrency = 5) => {
+const uploadDirectoryToB2 = async (
+  directoryPath,
+  videoId,
+  concurrency = 5,
+  onProgress
+) => {
   const files = getFilesRecursively(directoryPath);
 
   await deleteVideoDirectoryFromB2(videoId);
+
+  // Calculate the total size of all HLS files
+  const totalBytes = files.reduce(
+    (total, filePath) => total + fs.statSync(filePath).size,
+    0
+  );
+
+  // Track the progress of each file
+  const fileProgress = new Map();
+
+  files.forEach((filePath) => {
+    fileProgress.set(filePath, 0);
+  });
 
   for (let i = 0; i < files.length; i += concurrency) {
     const batch = files.slice(i, i + concurrency);
@@ -110,7 +150,24 @@ const uploadDirectoryToB2 = async (directoryPath, videoId, concurrency = 5) => {
           .join("videos", videoId, relativePath)
           .replace(/\\/g, "/");
 
-        await uploadFileToB2(filePath, key);
+        await uploadFileToB2(filePath, key, (uploadedBytes) => {
+          // Update the progress of the current file
+          fileProgress.set(filePath, uploadedBytes);
+
+          // Calculate total bytes uploaded across all files
+          const totalUploadedBytes = [...fileProgress.values()].reduce(
+            (total, bytes) => total + bytes,
+            0
+          );
+
+          const progress =
+            (totalUploadedBytes / totalBytes) * 100;
+
+          onProgress?.({
+            progress: Math.min(100, progress),
+            stage: "Uploading HLS",
+          });
+        });
 
         console.log(`Uploaded: ${key}`);
       })
@@ -121,12 +178,18 @@ const uploadDirectoryToB2 = async (directoryPath, videoId, concurrency = 5) => {
 
   console.log("All files uploaded successfully!");
 
+  onProgress?.({
+    progress: 100,
+    stage: "HLS upload completed",
+  });
+
   return masterPlaylistPath;
 };
 
 // const videoId = "f1d9ccf9-7f67-471d-a87b-b1cab3720124";
 
 // const directoryPath = `./public/processed/${videoId}`;
+
 // await uploadDirectoryToB2(directoryPath, videoId);
 
 const getFileFromB2 = async (key) => {
@@ -158,4 +221,8 @@ const getFileFromB2 = async (key) => {
   }
 };
 
-export { uploadDirectoryToB2, deleteVideoDirectoryFromB2, getFileFromB2 };
+export {
+  uploadDirectoryToB2,
+  deleteVideoDirectoryFromB2,
+  getFileFromB2,
+};

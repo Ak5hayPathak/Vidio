@@ -10,12 +10,20 @@ import { APIError } from "../utils/APIError.js";
 import fs from "fs/promises";
 import path from "path";
 
-const processAndUploadVideo = async (inputPath, maxRetries = 5) => {
+const processAndUploadVideo = async (inputPath, onProgress, maxRetries = 5) => {
   let videoInfo;
 
   try {
-    // Process the original video only once
-    videoInfo = await processVideo(inputPath);
+    // Process the original video
+    videoInfo = await processVideo(inputPath, (progressData) => {
+      // Convert HLS generation progress from 0-100 to 10-70
+      const overallProgress = 10 + (progressData.progress * 60) / 100;
+
+      onProgress?.({
+        progress: overallProgress,
+        stage: "Generating HLS",
+      });
+    });
 
     const { videoId, outputDirectory, qualities, duration } = videoInfo;
 
@@ -27,7 +35,20 @@ const processAndUploadVideo = async (inputPath, maxRetries = 5) => {
       try {
         console.log(`Uploading video to B2. Attempt ${attempt}/${maxRetries}`);
 
-        videoFile = await uploadDirectoryToB2(outputDirectory, videoId);
+        videoFile = await uploadDirectoryToB2(
+          outputDirectory,
+          videoId,
+          5,
+          (progressData) => {
+            // Convert B2 upload progress from 0-100 to 70-98
+            const overallProgress = 70 + (progressData.progress * 28) / 100;
+
+            onProgress?.({
+              progress: overallProgress,
+              stage: "Uploading HLS",
+            });
+          }
+        );
 
         // Upload successful
         break;
@@ -50,7 +71,8 @@ const processAndUploadVideo = async (inputPath, maxRetries = 5) => {
 
         // Stop retrying if we've reached max attempts
         if (attempt === maxRetries) {
-          await fs.unlink(inputPath); //delete the hls from local storage
+          await fs.unlink(inputPath);
+
           throw lastError;
         }
 
@@ -58,8 +80,14 @@ const processAndUploadVideo = async (inputPath, maxRetries = 5) => {
       }
     }
 
-    // Only delete local HLS after successful upload
+    // Local HLS is no longer needed
     await deleteLocalHLS(outputDirectory);
+
+    // HLS upload is complete
+    onProgress?.({
+      progress: 98,
+      stage: "Finalizing",
+    });
 
     return {
       videoId,
@@ -70,6 +98,7 @@ const processAndUploadVideo = async (inputPath, maxRetries = 5) => {
   } catch (error) {
     console.error("Video processing and upload failed:");
     console.error(error.message);
+
     throw error;
   }
 };

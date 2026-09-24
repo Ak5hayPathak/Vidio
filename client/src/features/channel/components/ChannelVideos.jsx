@@ -25,7 +25,7 @@ function ChannelVideos({
 
         {isOwner && (
           <Link
-            to="/upload"
+            to="/video/upload"
             className="
               shrink-0
               rounded-xl

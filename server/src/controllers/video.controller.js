@@ -17,7 +17,6 @@ import {
 } from "../services/b2.service.js";
 import { generateStreamToken } from "../utils/streamToken.js";
 
-//TODO: Count views Controller
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description = "", tags = [] } = req.body;
 
@@ -54,6 +53,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
     videoFileLocalPath,
     thumbnailLocalPath,
     username: req.user.username,
+    userId: userId.toString(),
   });
 
   console.log(`Video processing job added: ${job.id}`);
@@ -788,7 +788,7 @@ const recordVideoView = asyncHandler(async (req, res) => {
       },
     },
     {
-      returnDocument: 'after',
+      returnDocument: "after",
     }
   );
 

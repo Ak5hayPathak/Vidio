@@ -25,6 +25,8 @@ import History from "./features/history/pages/History.jsx";
 import Subscribers from "./features/subscriptions/pages/Subscribers.jsx";
 import Watch from "./features/video/pages/Watch.jsx";
 import EditVideo from "./features/video/pages/EditVideo.jsx";
+import UploadVideo from "./features/video/pages/UploadVideo.jsx";
+// import SocketTest from "./components/SocketTest.jsx";
 
 function AppLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -50,6 +52,7 @@ function AppLayout() {
 function App() {
   return (
     <div className="min-h-screen bg-[#08090b] text-white">
+       {/* <SocketTest /> */}
       <Routes>
         {/* Authentication routes */}
         <Route path="/login" element={<Login />} />
@@ -99,6 +102,7 @@ function App() {
             {/* Video */}
             <Route path="/video/watch/:videoId" element={<Watch/>} />
             <Route path="/video/edit/:videoId" element={<EditVideo/>} />
+            <Route path="/video/upload" element={<UploadVideo/>} />
           </Route>
         </Route>
       </Routes>

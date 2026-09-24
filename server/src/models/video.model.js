@@ -42,6 +42,19 @@ const videoSchema = new Schema(
       default: 0,
     },
 
+    //To process progress of a video upload
+    processingProgress: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+
+    processingStage: {
+      type: String,
+      default: "",
+    },
+
     // Publishing
     isPublished: {
       type: Boolean,

@@ -150,12 +150,50 @@ const runFFprobe = (filePath) => {
 };
 
 // Run FFmpeg and handle its completion with a Promise
-const runFFmpeg = (args) => {
+const runFFmpeg = (args, { duration, onProgress } = {}) => {
   return new Promise((resolve, reject) => {
     //console.log("FFmpeg args:", args);
-    const ffmpeg = spawn("ffmpeg", args);
+    const ffmpeg = spawn("ffmpeg", [
+      "-progress",
+      "pipe:1",
+      // Send FFmpeg progress information through stdout
+
+      "-nostats",
+      // Disables the default FFmpeg statistics output
+
+      ...args,
+    ]);
 
     let errorOutput = "";
+
+    let progressOutput = "";
+
+    // Read FFmpeg progress information
+    ffmpeg.stdout.on("data", (data) => {
+      progressOutput += data.toString();
+
+      const lines = progressOutput.split("\n");
+
+      // Keep incomplete lines for the next chunk
+      progressOutput = lines.pop() || "";
+
+      for (const line of lines) {
+        const [key, value] = line.trim().split("=");
+
+        // Get the current processing time reported by FFmpeg
+        if (key === "out_time_ms" && duration && onProgress) {
+          const currentTime = Number(value) / 1_000_000;
+
+          // Calculate processing progress based on video duration
+          const progress = Math.min(
+            100,
+            Math.max(0, (currentTime / duration) * 100)
+          );
+
+          onProgress(progress);
+        }
+      }
+    });
 
     ffmpeg.stderr.on("data", (data) => {
       errorOutput += data.toString();
@@ -167,6 +205,9 @@ const runFFmpeg = (args) => {
 
     ffmpeg.on("close", (code) => {
       if (code === 0) {
+        // Ensure the final progress reaches 100%
+        onProgress?.(100);
+
         resolve();
       } else {
         reject(
@@ -178,7 +219,13 @@ const runFFmpeg = (args) => {
 };
 
 // generates an HLS version of the video for a specific quality
-const generateVideoQuality = async (inputPath, quality, videoId) => {
+const generateVideoQuality = async (
+  inputPath,
+  quality,
+  videoId,
+  duration,
+  onProgress
+) => {
   const qualityDirectory = path.join(
     PROCESSED_VIDEOS_DIRECTORY,
     videoId,
@@ -192,51 +239,57 @@ const generateVideoQuality = async (inputPath, quality, videoId) => {
   const playlistPath = path.join(qualityDirectory, "playlist.m3u8");
   const segmentPath = path.join(qualityDirectory, "segment%d.ts");
 
-  await runFFmpeg([
-    "-i",
-    inputPath,
-    //Input video file
+  await runFFmpeg(
+    [
+      "-i",
+      inputPath,
+      //Input video file
 
-    "-vf",
-    `scale=-2:${quality.height}`,
-    //resized the video
+      "-vf",
+      `scale=-2:${quality.height}`,
+      //resized the video
 
-    "-c:v",
-    "libx264",
-    //uses the H.264 video codec
+      "-c:v",
+      "libx264",
+      //uses the H.264 video codec
 
-    "-b:v",
-    quality.bitrate,
-    //sets the video bitrate
+      "-b:v",
+      quality.bitrate,
+      //sets the video bitrate
 
-    "-c:a",
-    "aac",
-    //uses AAC audio encoding
+      "-c:a",
+      "aac",
+      //uses AAC audio encoding
 
-    "-b:a",
-    "128k",
-    //sets audio bitrate to 128 kbps
+      "-b:a",
+      "128k",
+      //sets audio bitrate to 128 kbps
 
-    "-hls_time",
-    "4",
-    //creates HLS segments of approximately 4 seconds
+      "-hls_time",
+      "4",
+      //creates HLS segments of approximately 4 seconds
 
-    "-force_key_frames",
-    "expr:gte(t,n_forced*4)",
-    // forces keyframes approximately every 4 seconds
-    // so the video can be segmented properly
+      "-force_key_frames",
+      "expr:gte(t,n_forced*4)",
+      // forces keyframes approximately every 4 seconds
+      // so the video can be segmented properly
 
-    "-hls_list_size",
-    "0",
-    //keeps all segments in the playlist
+      "-hls_list_size",
+      "0",
+      //keeps all segments in the playlist
 
-    "-hls_segment_filename",
-    segmentPath,
-    //tells FFmpeg where to save the .ts segment files
+      "-hls_segment_filename",
+      segmentPath,
+      //tells FFmpeg where to save the .ts segment files
 
-    playlistPath,
-    //the final output playlist
-  ]);
+      playlistPath,
+      //the final output playlist
+    ],
+    {
+      duration,
+      onProgress,
+    }
+  );
 
   console.log(`${quality.name} generated successfully!`);
 };
@@ -306,8 +359,9 @@ const generateThumbnail = async (inputPath, outputPath) => {
   }
 };
 
-const processVideo = async (inputPath) => {
+const processVideo = async (inputPath, onProgress) => {
   const videoId = crypto.randomUUID();
+
   try {
     const metadata = await runFFprobe(inputPath);
 
@@ -322,13 +376,49 @@ const processVideo = async (inputPath) => {
     const qualities = supportedQualities.map((quality) => quality.name);
     console.log("Generating: ", qualities);
 
+    // Track the progress of each quality
+    const qualityProgress = new Map();
+
+    supportedQualities.forEach((quality) => {
+      qualityProgress.set(quality.name, 0);
+    });
+
+    // Calculate the overall processing progress
+    const reportOverallProgress = () => {
+      const values = [...qualityProgress.values()];
+
+      const total =
+        values.reduce((sum, value) => sum + value, 0) / values.length;
+
+      onProgress?.({
+        progress: total,
+        stage: "Generating HLS",
+      });
+    };
+
     await Promise.all(
       supportedQualities.map((quality) =>
-        generateVideoQuality(inputPath, quality, videoId)
+        generateVideoQuality(
+          inputPath,
+          quality,
+          videoId,
+          duration,
+          (progress) => {
+            qualityProgress.set(quality.name, progress);
+            reportOverallProgress();
+          }
+        )
       )
     );
 
     createMasterPlaylist(supportedQualities, videoId);
+
+    // Report that HLS generation has completed
+    onProgress?.({
+      progress: 100,
+      stage: "HLS generation completed",
+    });
+
     console.log("All qualities generated successfully!");
 
     return {
