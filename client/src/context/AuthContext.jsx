@@ -1,35 +1,59 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import api from "../services/api.js";
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     const getCurrentUser = async () => {
       try {
         const response = await api.get("/users/current-user");
 
-        setUser(response.data.data);
+        if (mounted) {
+          setUser(response.data.data);
+        }
       } catch (error) {
-        setUser(null);
+        if (mounted) {
+          setUser(null);
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     getCurrentUser();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error("useAuth must be used inside an AuthProvider");
+  }
+
+  return context;
 }

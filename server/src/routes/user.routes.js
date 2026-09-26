@@ -72,7 +72,7 @@ router.route("/verify-email/:token").get(verifyEmail);
 // Resend verification email
 router
   .route("/resend-verification-email")
-  .post(verifyJWT, resendVerificationEmail);
+  .post(resendVerificationEmail);
 
 
 /* Password Recovery                                                          */

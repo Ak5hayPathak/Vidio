@@ -205,7 +205,7 @@ const UploadVideo = () => {
           <div className="rounded-lg border border-green-900 bg-green-950/20 px-4 py-3 text-sm text-green-400">
             Your video has been processed successfully.{" "}
             <Link
-              to={`/watch/${videoId}`}
+              to={`/video/watch/${videoId}`}
               className="font-medium underline"
             >
               Watch video

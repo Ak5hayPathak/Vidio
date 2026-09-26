@@ -59,7 +59,7 @@ const initializeSocketIO = (httpServer) => {
   // Listen for events from the worker through Redis
   redisSubscriber.on("message", (channel, message) => {
     try {
-      console.log("Redis message received:", channel, message);
+      //console.log("Redis message received:", channel, message);
 
       const data = JSON.parse(message);
 

@@ -47,7 +47,7 @@ function EmptyVideos({ isOwner = false }) {
 
       {isOwner && (
         <Link
-          to="/upload"
+          to="/video/upload"
           className="
             mt-6
             rounded-xl

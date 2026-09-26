@@ -139,7 +139,7 @@ const EditVideo = () => {
 
       // Give the success message a moment before navigating.
       setTimeout(() => {
-        navigate("/your-videos");
+        navigate("/channel");
       }, 500);
     } catch (error) {
       console.error("Failed to delete video:", error);

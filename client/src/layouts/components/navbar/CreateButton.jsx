@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, Video, MessageSquare, ListPlus } from "lucide-react";
+import { Link } from "react-router-dom";
 
 function CreateButton() {
   const [open, setOpen] = useState(false);
@@ -7,10 +8,7 @@ function CreateButton() {
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (
-        createRef.current &&
-        !createRef.current.contains(event.target)
-      ) {
+      if (createRef.current && !createRef.current.contains(event.target)) {
         setOpen(false);
       }
     }
@@ -48,9 +46,7 @@ function CreateButton() {
       >
         <Plus
           size={18}
-          className={`transition-transform ${
-            open ? "rotate-45" : ""
-          }`}
+          className={`transition-transform ${open ? "rotate-45" : ""}`}
         />
 
         <span className="hidden sm:inline">Create</span>
@@ -74,8 +70,9 @@ function CreateButton() {
             shadow-xl
           "
         >
-          <button
-            className="
+          <Link to="/video/upload">
+            <button
+              className="
               flex
               w-full
               items-center
@@ -88,10 +85,11 @@ function CreateButton() {
               transition
               hover:bg-white/5
             "
-          >
-            <Video size={18} className="text-white/70" />
-            <span>Video</span>
-          </button>
+            >
+              <Video size={18} className="text-white/70" />
+              <span>Video</span>
+            </button>
+          </Link>
 
           <button
             className="

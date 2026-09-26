@@ -21,7 +21,7 @@ const VerifyEmail = () => {
 
     verificationAttempted.current = true;
 
-    const verifyEmail = async () => {
+    const handleVerifyEmail = async () => {
       try {
         const response = await verifyEmail(token);
 
@@ -38,7 +38,7 @@ const VerifyEmail = () => {
       }
     };
 
-    verifyEmail();
+    handleVerifyEmail();
   }, [token]);
 
   const handleResend = async (e) => {

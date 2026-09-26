@@ -207,7 +207,7 @@ function Watch() {
           </section>
 
           {/* Recommended videos */}
-          <RecommendedVideos />
+          {/* <RecommendedVideos /> */}
         </div>
       </main>
     </div>

@@ -169,7 +169,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
-    req.cookies.refreshToken || req.body.refreshToken;
+    req.cookies?.refreshToken || req.body?.refreshToken;
 
   if (!incomingRefreshToken) {
     throw new APIError(401, "Unauthorized request");
@@ -210,14 +210,14 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
   const rememberMe = decodedToken.rememberMe;
 
-  const { accessToken, refreshToken } =
-    await generateAccessAndRefreshToken(user._id, rememberMe);
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    user._id,
+    rememberMe
+  );
 
   const refreshTokenOptions = {
     ...options,
-    maxAge: rememberMe
-      ? 10 * 24 * 60 * 60 * 1000
-      : 1 * 24 * 60 * 60 * 1000,
+    maxAge: rememberMe ? 10 * 24 * 60 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000,
   };
 
   return res
@@ -268,7 +268,13 @@ const verifyEmail = asyncHandler(async (req, res) => {
 });
 
 const resendVerificationEmail = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
+  const { email } = req.body;
+
+  if (!email) {
+    throw new APIError(400, "Email is required");
+  }
+
+  const user = await User.findOne({ email });
 
   if (!user) {
     throw new APIError(404, "User not found");
