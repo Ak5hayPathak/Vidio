@@ -47,9 +47,10 @@ app.use("/api/v1/playlist-collab", playlistCollaboratorRouter);
 app.use("/api/v1/notifications", notificationRouter);
 app.use("/api/v1/search-history", searchHistoryRouter);
 
-// https://localhost:8000/api/v1/users/register
-// https://localhost:8000/api/v1/users/login
 
 app.use(errorHandler);
 
 export { app };
+
+// https://localhost:15000/api/v1/users/register
+// https://localhost:15000/api/v1/users/login
