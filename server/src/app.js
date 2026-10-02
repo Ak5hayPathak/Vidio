@@ -18,8 +18,15 @@ app.use(express.urlencoded({ extended: true, limit: "32kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
-//importing router
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    service: "Vidio API",
+    timestamp: new Date().toISOString(),
+  });
+});
 
+//importing router
 import userRouter from "./routes/user.routes.js";
 import tweetRouter from "./routes/tweet.routes.js";
 import subscriptionRouter from "./routes/subscription.routes.js";
@@ -46,7 +53,6 @@ app.use("/api/v1/watch-later", watchLater);
 app.use("/api/v1/playlist-collab", playlistCollaboratorRouter);
 app.use("/api/v1/notifications", notificationRouter);
 app.use("/api/v1/search-history", searchHistoryRouter);
-
 
 app.use(errorHandler);
 

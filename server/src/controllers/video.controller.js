@@ -47,22 +47,53 @@ const publishAVideo = asyncHandler(async (req, res) => {
     isPublished: false,
   });
 
-  // Add video-processing job
-  const job = await videoProcessingQueue.add("process-video", {
-    videoId: video._id.toString(),
-    videoFileLocalPath,
-    thumbnailLocalPath,
-    username: req.user.username,
-    userId: userId.toString(),
-  });
+  try {
+    // Add video-processing job
+    const job = await videoProcessingQueue.add("process-video", {
+      videoId: video._id.toString(),
+      videoFileLocalPath,
+      thumbnailLocalPath,
+      username: req.user.username,
+      userId: userId.toString(),
+    });
 
-  console.log(`Video processing job added: ${job.id}`);
+    console.log(`Video processing job added: ${job.id}`);
 
-  return res
-    .status(201)
-    .json(
-      new APIResponse(201, video, "Video uploaded and processing started!")
+    return res
+      .status(201)
+      .json(
+        new APIResponse(201, video, "Video uploaded and processing started!")
+      );
+  } catch (error) {
+    console.error("Failed to add video processing job:", error);
+
+    // Remove the video record from MongoDB
+    try {
+      await Video.deleteOne({ _id: video._id });
+    } catch (cleanupError) {
+      console.error("Failed to remove video record:", cleanupError);
+    }
+
+    // Clean up uploaded files
+    const filesToDelete = [videoFileLocalPath, thumbnailLocalPath].filter(
+      Boolean
     );
+
+    await Promise.allSettled(
+      filesToDelete.map((filePath) => fs.unlink(filePath))
+    ).then((results) => {
+      results.forEach((result) => {
+        if (result.status === "rejected") {
+          console.error("Failed to delete temporary file:", result.reason);
+        }
+      });
+    });
+
+    throw new APIError(
+      503,
+      "Video processing service is temporarily unavailable. Please try again."
+    );
+  }
 });
 
 const getAllVideos = asyncHandler(async (req, res) => {

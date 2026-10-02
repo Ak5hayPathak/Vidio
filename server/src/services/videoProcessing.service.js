@@ -71,8 +71,6 @@ const processAndUploadVideo = async (inputPath, onProgress, maxRetries = 5) => {
 
         // Stop retrying if we've reached max attempts
         if (attempt === maxRetries) {
-          await fs.unlink(inputPath);
-
           throw lastError;
         }
 
@@ -119,14 +117,17 @@ const processAndUploadThumbnail = async (
       await generateThumbnail(videoFileLocalPath, thumbnailLocalPath);
     }
 
-    // Upload thumbnail to Cloudinary
-    const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+    // Upload thumbnail without deleting the local file
+    const thumbnail = await uploadOnCloudinary(thumbnailLocalPath, false);
 
     if (!thumbnail) {
       throw new APIError(500, "Failed to upload thumbnail on Cloudinary!");
     }
 
-    return thumbnail.url;
+    return {
+      thumbnailURL: thumbnail.url,
+      thumbnailLocalPath,
+    };
   } catch (error) {
     console.error("Thumbnail processing failed:", error.message);
     throw error;

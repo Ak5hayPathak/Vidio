@@ -2,7 +2,7 @@ import fs from "fs";
 import { cloudinary } from "../config/cloudinaryClient.js";
 
 // Upload an image
-const uploadOnCloudinary = async (localFilePath) => {
+const uploadOnCloudinary = async (localFilePath, cleanup = true) => {
   if (!localFilePath) return null;
 
   try {
@@ -15,10 +15,12 @@ const uploadOnCloudinary = async (localFilePath) => {
     console.error("Cloudinary upload error:", err);
     return null;
   } finally {
-    try {
-      fs.unlinkSync(localFilePath);
-    } catch (err) {
-      console.error("Failed to delete local file:", err);
+    if (cleanup) {
+      try {
+        fs.unlinkSync(localFilePath);
+      } catch (err) {
+        console.error("Failed to delete local file:", err);
+      }
     }
   }
 };

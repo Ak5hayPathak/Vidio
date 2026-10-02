@@ -52,6 +52,17 @@ const notificationSchema = new Schema(
   }
 );
 
+// Prevent duplicate new_video notifications for the same recipient and video
+notificationSchema.index(
+  { recipient: 1, type: 1, resource: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      type: "new_video",
+    },
+  }
+);
+
 notificationSchema.plugin(mongooseAggregatePaginate);
 
 export const Notification = mongoose.model("Notification", notificationSchema);
