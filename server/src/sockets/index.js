@@ -1,15 +1,12 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
+
 import { setSocketIO } from "./socket.manager.js";
 import { redisSubscriber } from "../config/redis.js";
+import socketConfig from "../config/socket.config.js";
 
 const initializeSocketIO = (httpServer) => {
-  const io = new Server(httpServer, {
-    cors: {
-      origin: "http://localhost:5173",
-      credentials: true,
-    },
-  });
+  const io = new Server(httpServer, socketConfig);
 
   // Authenticate Socket.IO connections using the access token cookie
   io.use((socket, next) => {
@@ -21,16 +18,17 @@ const initializeSocketIO = (httpServer) => {
       }
 
       const accessToken = cookies
-        .split("; ")
+        .split(";")
+        .map((cookie) => cookie.trim())
         .find((cookie) => cookie.startsWith("accessToken="))
-        ?.split("=")[1];
+        ?.substring("accessToken=".length);
 
       if (!accessToken) {
         return next(new Error("Access token missing"));
       }
 
       const decodedToken = jwt.verify(
-        accessToken,
+        decodeURIComponent(accessToken),
         process.env.ACCESS_TOKEN_SECRET
       );
 
@@ -46,6 +44,7 @@ const initializeSocketIO = (httpServer) => {
     }
   });
 
+  // Handle authenticated client connections
   io.on("connection", (socket) => {
     console.log("Client connected:", socket.id);
 
@@ -54,13 +53,15 @@ const initializeSocketIO = (httpServer) => {
     socket.join(`userId:${userId}`);
 
     console.log(`User ${userId} joined notification room`);
+
+    socket.on("disconnect", (reason) => {
+      console.log(`Client disconnected: ${socket.id}`, reason);
+    });
   });
 
   // Listen for events from the worker through Redis
   redisSubscriber.on("message", (channel, message) => {
     try {
-      //console.log("Redis message received:", channel, message);
-
       const data = JSON.parse(message);
 
       // Handle video processing events
@@ -78,7 +79,11 @@ const initializeSocketIO = (httpServer) => {
   });
 
   // Subscribe to worker events
-  redisSubscriber.subscribe("video-processing", "notifications");
+  redisSubscriber
+    .subscribe("video-processing", "notifications")
+    .catch((error) => {
+      console.error("Failed to subscribe to Redis channels:", error.message);
+    });
 
   setSocketIO(io);
 

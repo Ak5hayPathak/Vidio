@@ -1,22 +1,37 @@
 import Redis from "ioredis";
 
-const redisConnection = new Redis({
-  host: process.env.REDIS_HOST ?? "127.0.0.1",
-  port: process.env.REDIS_PORT ?? 6379,
+const redisOptions = {
   maxRetriesPerRequest: null,
-});
+};
 
+const createRedisConnection = (options = {}) => {
+  if (process.env.REDIS_URL) {
+    return new Redis(process.env.REDIS_URL, options);
+  }
+
+  return new Redis({
+    host: process.env.REDIS_HOST ?? "127.0.0.1",
+    port: Number(process.env.REDIS_PORT ?? 6379),
+    ...options,
+  });
+};
+
+// BullMQ connection
+const redisConnection = createRedisConnection(redisOptions);
+
+// Pub/Sub publisher
+const redisPublisher = createRedisConnection();
+
+// Pub/Sub subscriber
+const redisSubscriber = createRedisConnection();
+
+// Connection events
 redisConnection.on("connect", () => {
   console.log("Redis Connected!");
 });
 
 redisConnection.on("error", (error) => {
-  console.error("Redis connection error: ", error);
-});
-
-const redisPublisher = new Redis({
-  host: process.env.REDIS_HOST ?? "127.0.0.1",
-  port: process.env.REDIS_PORT ?? 6379,
+  console.error("Redis connection error:", error);
 });
 
 redisPublisher.on("connect", () => {
@@ -24,13 +39,7 @@ redisPublisher.on("connect", () => {
 });
 
 redisPublisher.on("error", (error) => {
-  console.error("Redis Publisher connection error: ", error);
-});
-
-// Redis connection used to receive Pub/Sub messages
-const redisSubscriber = new Redis({
-  host: process.env.REDIS_HOST ?? "127.0.0.1",
-  port: process.env.REDIS_PORT ?? 6379,
+  console.error("Redis Publisher connection error:", error);
 });
 
 redisSubscriber.on("connect", () => {
@@ -38,7 +47,7 @@ redisSubscriber.on("connect", () => {
 });
 
 redisSubscriber.on("error", (error) => {
-  console.error("Redis Subscriber connection error: ", error);
+  console.error("Redis Subscriber connection error:", error);
 });
 
 export {

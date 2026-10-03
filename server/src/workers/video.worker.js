@@ -1,4 +1,3 @@
-import "dotenv/config";
 import connectDB from "../config/db.js";
 import { Worker } from "bullmq";
 import { redisConnection, redisPublisher } from "../config/redis.js";
@@ -11,6 +10,20 @@ import {
 } from "../services/videoProcessing.service.js";
 import fs from "fs/promises";
 import mongoose from "mongoose";
+import validateEnv from "../config/validateEnv.js";
+
+validateEnv([
+  "MONGODB_URI",
+  //"REDIS_URL", //uncomment while deploying
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
+  "B2_KEY_ID",
+  "B2_APPLICATION_KEY",
+  "B2_BUCKET_NAME",
+  "B2_ENDPOINT",
+  "B2_REGION",
+]);
 
 // Safely delete temporary files without interrupting job execution
 const cleanupFile = async (filePath) => {

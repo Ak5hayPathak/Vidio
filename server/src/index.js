@@ -1,16 +1,32 @@
-import dotenv from "dotenv";
 import http from "http";
-
+import validateEnv from "./config/validateEnv.js";
 import connectDB from "./config/db.js";
 import { app } from "./app.js";
 
 import { initializeSocketIO } from "./sockets/index.js";
 
-dotenv.config({
-  path: "./.env",
-});
+//to check if any env variable is missing
+validateEnv([
+  "PORT",
+  "MONGODB_URI",
+  "ACCESS_TOKEN_SECRET",
+  "REFRESH_TOKEN_SECRET",
+  "STREAM_TOKEN_SECRET",
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
+  "B2_KEY_ID",
+  "B2_APPLICATION_KEY",
+  "B2_BUCKET_NAME",
+  "B2_ENDPOINT",
+  "B2_REGION",
+  "EMAIL_USER",
+  "EMAIL_APP_PASSWORD",
+  "CORS_ORIGIN",
+  "CLIENT_URL",
+]);
 
-const port = process.env.PORT || 9000;
+const port = process.env.PORT || 15000;
 
 //separate HTTP server from Express app
 const httpServer = http.createServer(app);
