@@ -1,7 +1,12 @@
+const allowedOrigins = process.env.CORS_ORIGIN.split(",").map((origin) =>
+  origin.trim()
+);
+
 const socketConfig = {
   cors: {
-    origin: process.env.CORS_ORIGIN,
+    origin: allowedOrigins,
     credentials: true,
+    methods: ["GET", "POST"],
   },
 };
 

@@ -8,6 +8,7 @@ const uploadOnCloudinary = async (localFilePath, cleanup = true) => {
   try {
     const response = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",
+      secure: true,
     });
 
     return response;
