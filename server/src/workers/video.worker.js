@@ -14,10 +14,15 @@ import validateEnv from "../config/validateEnv.js";
 
 validateEnv([
   "MONGODB_URI",
-  //"REDIS_URL", //uncomment while deploying
+
+  ...(process.env.NODE_ENV === "production"
+    ? ["REDIS_URL"]
+    : ["REDIS_HOST", "REDIS_PORT"]),
+
   "CLOUDINARY_CLOUD_NAME",
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
+
   "B2_KEY_ID",
   "B2_APPLICATION_KEY",
   "B2_BUCKET_NAME",
