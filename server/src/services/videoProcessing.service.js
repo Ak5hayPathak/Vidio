@@ -1,103 +1,115 @@
-import { processVideo } from "../utils/videoProcessor.js";
+import { processVideo, generateThumbnail } from "../utils/videoProcessor.js";
 import {
   uploadDirectoryToB2,
   deleteVideoDirectoryFromB2,
 } from "./b2.service.js";
 import { uploadOnCloudinary } from "./cloudinary.service.js";
-import { generateThumbnail } from "../utils/videoProcessor.js";
 import { deleteLocalHLS } from "../utils/fileCleanup.js";
 import { APIError } from "../utils/APIError.js";
 import fs from "fs/promises";
 import path from "path";
 
-const processAndUploadVideo = async (inputPath, onProgress, maxRetries = 5) => {
-  let videoInfo;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Encode to HLS and upload to B2.
+ *
+ * @param {string} inputPath
+ * @param {Function} onProgress
+ * @param {object} [options]
+ * @param {string} [options.videoId] Stable id (use the Mongo _id) so retries
+ *   reuse the same local folder and B2 prefix instead of creating orphans.
+ * @param {number} [options.maxUploadAttempts] Whole-directory upload attempts.
+ *   Each file is already retried inside uploadDirectoryToB2.
+ */
+const processAndUploadVideo = async (
+  inputPath,
+  onProgress,
+  { videoId, maxUploadAttempts = 2 } = {}
+) => {
+  let outputDirectory;
+  let resolvedVideoId = videoId;
 
   try {
-    // Process the original video
-    videoInfo = await processVideo(inputPath, (progressData) => {
-      // Convert HLS generation progress from 0-100 to 10-70
-      const overallProgress = 10 + (progressData.progress * 60) / 100;
+    // HLS generation maps to 10-70% overall progress
+    const videoInfo = await processVideo(
+      inputPath,
+      (progressData) => {
+        onProgress?.({
+          progress: 10 + (progressData.progress * 60) / 100,
+          stage: "Generating HLS",
+        });
+      },
+      videoId
+    );
 
-      onProgress?.({
-        progress: overallProgress,
-        stage: "Generating HLS",
-      });
-    });
-
-    const { videoId, outputDirectory, qualities, duration } = videoInfo;
+    ({ outputDirectory, videoId: resolvedVideoId } = videoInfo);
+    const { qualities, duration } = videoInfo;
 
     let videoFile;
-    let lastError;
 
-    // Retry only the upload process
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    for (let attempt = 1; attempt <= maxUploadAttempts; attempt++) {
       try {
-        console.log(`Uploading video to B2. Attempt ${attempt}/${maxRetries}`);
+        console.log(
+          `Uploading video to B2. Attempt ${attempt}/${maxUploadAttempts}`
+        );
 
+        // B2 upload maps to 70-98% overall progress.
+        // uploadDirectoryToB2 clears the prefix first, so retries start clean.
         videoFile = await uploadDirectoryToB2(
           outputDirectory,
-          videoId,
-          5,
+          resolvedVideoId,
+          3,
           (progressData) => {
-            // Convert B2 upload progress from 0-100 to 70-98
-            const overallProgress = 70 + (progressData.progress * 28) / 100;
-
             onProgress?.({
-              progress: overallProgress,
+              progress: 70 + (progressData.progress * 28) / 100,
               stage: "Uploading HLS",
             });
           }
         );
 
-        // Upload successful
         break;
       } catch (error) {
-        lastError = error;
-
         console.error(`Upload attempt ${attempt} failed:`, error.message);
 
-        // Delete partially uploaded files from B2
-        try {
-          await deleteVideoDirectoryFromB2(videoId);
+        if (attempt === maxUploadAttempts) {
+          // Out of attempts: remove partial objects from B2, then fail.
+          try {
+            await deleteVideoDirectoryFromB2(resolvedVideoId);
+          } catch (deleteError) {
+            console.error(
+              "Failed to delete partial upload:",
+              deleteError.message
+            );
+          }
 
-          console.log(`Partial upload deleted for video: ${videoId}`);
-        } catch (deleteError) {
-          console.error(
-            "Failed to delete partial upload:",
-            deleteError.message
-          );
+          throw error;
         }
 
-        // Stop retrying if we've reached max attempts
-        if (attempt === maxRetries) {
-          throw lastError;
-        }
-
-        console.log("Retrying upload...");
+        await wait(2000);
       }
     }
 
-    // Local HLS is no longer needed
-    await deleteLocalHLS(outputDirectory);
-
-    // HLS upload is complete
-    onProgress?.({
-      progress: 98,
-      stage: "Finalizing",
-    });
+    onProgress?.({ progress: 98, stage: "Finalizing" });
 
     return {
-      videoId,
+      videoId: resolvedVideoId,
       videoFile,
       qualities,
       duration,
     };
   } catch (error) {
-    console.error("Video processing and upload failed:");
-    console.error(error.message);
-
+    console.error("Video processing and upload failed:", error.message);
     throw error;
+  } finally {
+    // Local HLS output is removed on success AND failure.
+    if (outputDirectory) {
+      try {
+        await deleteLocalHLS(outputDirectory);
+      } catch (cleanupError) {
+        console.error("Failed to delete local HLS:", cleanupError.message);
+      }
+    }
   }
 };
 
@@ -105,19 +117,22 @@ const processAndUploadThumbnail = async (
   thumbnailLocalPath,
   videoFileLocalPath
 ) => {
+  let generatedPath;
+
   try {
-    // Generate thumbnail if user didn't provide one
+    // Generate a thumbnail if the user didn't provide one
     if (!thumbnailLocalPath) {
-      thumbnailLocalPath = path.join(
+      generatedPath = path.join(
         "public",
         "temp",
         `thumbnail-${Date.now()}.jpg`
       );
 
-      await generateThumbnail(videoFileLocalPath, thumbnailLocalPath);
+      await generateThumbnail(videoFileLocalPath, generatedPath);
+      thumbnailLocalPath = generatedPath;
     }
 
-    // Upload thumbnail without deleting the local file
+    // Upload without deleting the local file (the worker cleans it up)
     const thumbnail = await uploadOnCloudinary(thumbnailLocalPath, false);
 
     if (!thumbnail) {
@@ -130,6 +145,12 @@ const processAndUploadThumbnail = async (
     };
   } catch (error) {
     console.error("Thumbnail processing failed:", error.message);
+
+    // Don't leave generated thumbnails behind on failed attempts.
+    if (generatedPath) {
+      await fs.unlink(generatedPath).catch(() => {});
+    }
+
     throw error;
   }
 };
