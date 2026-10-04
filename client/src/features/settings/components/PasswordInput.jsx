@@ -4,7 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 function PasswordInput({
   id,
   label = "Password",
-  value,
+  value = "",
   onChange,
   placeholder,
   autoComplete,
@@ -12,7 +12,7 @@ function PasswordInput({
 }) {
   const [showPassword, setShowPassword] = useState(false);
 
-  const passwordLabel = (label ?? "Password").toLowerCase();
+  const passwordLabel = (label ?? "Password").toString();
 
   return (
     <div>
@@ -26,7 +26,7 @@ function PasswordInput({
           text-gray-200
         "
       >
-        {label}
+        {passwordLabel}
       </label>
 
       <div className="relative">
@@ -38,6 +38,7 @@ function PasswordInput({
           placeholder={placeholder}
           autoComplete={autoComplete}
           disabled={disabled}
+          required
           className="
             h-11
             w-full
@@ -73,10 +74,16 @@ function PasswordInput({
             disabled:cursor-not-allowed
           "
           aria-label={
-            showPassword ? `Hide ${passwordLabel}` : `Show ${passwordLabel}`
+            showPassword
+              ? `Hide ${passwordLabel.toLowerCase()}`
+              : `Show ${passwordLabel.toLowerCase()}`
           }
         >
-          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          {showPassword ? (
+            <EyeOff size={18} aria-hidden="true" />
+          ) : (
+            <Eye size={18} aria-hidden="true" />
+          )}
         </button>
       </div>
     </div>

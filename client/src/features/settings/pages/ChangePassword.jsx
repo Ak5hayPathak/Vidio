@@ -3,22 +3,14 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Lock } from "lucide-react";
 
 import { changePassword } from "../settings.service.js";
-
-import {
-  validatePasswordChange,
-} from "../settings.utils.js";
+import { validatePasswordChange } from "../settings.utils.js";
 
 import ChangePasswordForm from "../components/ChangePasswordForm.jsx";
 
 const ChangePassword = () => {
-  const [currentPassword, setCurrentPassword] =
-    useState("");
-
-  const [newPassword, setNewPassword] =
-    useState("");
-
-  const [confirmPassword, setConfirmPassword] =
-    useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -30,12 +22,11 @@ const ChangePassword = () => {
     setError("");
     setSuccess(false);
 
-    const validationError =
-      validatePasswordChange(
-        currentPassword,
-        newPassword,
-        confirmPassword,
-      );
+    const validationError = validatePasswordChange(
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    );
 
     if (validationError) {
       setError(validationError);
@@ -45,10 +36,7 @@ const ChangePassword = () => {
     try {
       setLoading(true);
 
-      await changePassword(
-        currentPassword,
-        newPassword,
-      );
+      await changePassword(currentPassword, newPassword);
 
       setSuccess(true);
 
@@ -68,7 +56,6 @@ const ChangePassword = () => {
   return (
     <div className="min-h-screen bg-[#08090b] text-white">
       <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
-
         <Link
           to="/settings"
           className="
@@ -113,19 +100,17 @@ const ChangePassword = () => {
               <Lock size={22} />
             </div>
 
-            <h1 className="mt-5 text-2xl font-bold">
-              Change Password
-            </h1>
+            <h1 className="mt-5 text-2xl font-bold">Change Password</h1>
 
             <p className="mt-2 text-sm leading-6 text-gray-400">
-              Update your password to keep your account
-              secure.
+              Update your password to keep your account secure.
             </p>
           </div>
 
           {/* Success */}
           {success && (
             <div
+              role="status"
               className="
                 mt-6
                 rounded-xl
@@ -145,6 +130,7 @@ const ChangePassword = () => {
           {/* Error */}
           {error && (
             <div
+              role="alert"
               className="
                 mt-6
                 rounded-xl

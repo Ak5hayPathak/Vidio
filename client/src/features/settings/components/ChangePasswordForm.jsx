@@ -1,4 +1,4 @@
-import PasswordInput from "./PasswordForm.jsx";
+import PasswordInput from "./PasswordInput.jsx";
 
 function ChangePasswordForm({
   currentPassword,
@@ -11,7 +11,7 @@ function ChangePasswordForm({
   onSubmit,
 }) {
   return (
-    <form onSubmit={onSubmit} className="mt-8 space-y-5">
+    <form onSubmit={onSubmit} className="mt-8 space-y-5" aria-busy={loading}>
       <PasswordInput
         id="currentPassword"
         label="Current Password"
