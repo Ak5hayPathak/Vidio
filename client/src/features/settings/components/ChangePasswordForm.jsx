@@ -1,85 +1,68 @@
-import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import PasswordInput from "./PasswordForm.jsx";
 
 function ChangePasswordForm({
-  id,
-  label,
-  value,
-  onChange,
-  placeholder,
-  autoComplete,
-  disabled = false,
+  currentPassword,
+  newPassword,
+  confirmPassword,
+  setCurrentPassword,
+  setNewPassword,
+  setConfirmPassword,
+  loading,
+  onSubmit,
 }) {
-  const [showPassword, setShowPassword] = useState(false);
-
   return (
-    <div>
-      <label
-        htmlFor={id}
+    <form onSubmit={onSubmit} className="mt-8 space-y-5">
+      <PasswordInput
+        id="currentPassword"
+        label="Current Password"
+        value={currentPassword}
+        onChange={(e) => setCurrentPassword(e.target.value)}
+        placeholder="Enter current password"
+        autoComplete="current-password"
+        disabled={loading}
+      />
+
+      <PasswordInput
+        id="newPassword"
+        label="New Password"
+        value={newPassword}
+        onChange={(e) => setNewPassword(e.target.value)}
+        placeholder="Enter new password"
+        autoComplete="new-password"
+        disabled={loading}
+      />
+
+      <PasswordInput
+        id="confirmPassword"
+        label="Confirm New Password"
+        value={confirmPassword}
+        onChange={(e) => setConfirmPassword(e.target.value)}
+        placeholder="Confirm your new password"
+        autoComplete="new-password"
+        disabled={loading}
+      />
+
+      <button
+        type="submit"
+        disabled={loading}
         className="
-          mb-2
-          block
+          w-full
+          rounded-xl
+          bg-red-600
+          px-4
+          py-3
           text-sm
-          font-medium
-          text-gray-200
+          font-semibold
+          text-white
+          transition
+          hover:bg-red-700
+          disabled:cursor-not-allowed
+          disabled:opacity-50
         "
       >
-        {label}
-      </label>
-
-      <div className="relative">
-        <input
-          id={id}
-          type={showPassword ? "text" : "password"}
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          autoComplete={autoComplete}
-          disabled={disabled}
-          className="
-            h-11
-            w-full
-            rounded-xl
-            border
-            border-white/10
-            bg-[#08090b]
-            px-4
-            pr-12
-            text-sm
-            text-white
-            outline-none
-            placeholder:text-gray-500
-            transition
-            focus:border-red-600
-            disabled:cursor-not-allowed
-            disabled:opacity-50
-          "
-        />
-
-        <button
-          type="button"
-          onClick={() => setShowPassword((current) => !current)}
-          disabled={disabled}
-          className="
-            absolute
-            right-3
-            top-1/2
-            -translate-y-1/2
-            text-gray-500
-            transition
-            hover:text-white
-            disabled:cursor-not-allowed
-          "
-          aria-label={
-            showPassword
-              ? `Hide ${label.toLowerCase()}`
-              : `Show ${label.toLowerCase()}`
-          }
-        >
-          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-        </button>
-      </div>
-    </div>
+        {loading ? "Updating Password..." : "Change Password"}
+      </button>
+    </form>
   );
 }
 
