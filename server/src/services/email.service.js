@@ -1,18 +1,32 @@
-import nodemailer from "nodemailer";
+const sendEmail = async ({ to, subject, html }) => {
+  const response = await fetch(process.env.GOOGLE_APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      secret: process.env.GOOGLE_APPS_SCRIPT_SECRET,
+      to,
+      subject,
+      html,
+    }),
+    redirect: "follow",
+  });
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD,
-  },
-});
+  const result = await response.json();
+
+  if (!response.ok || !result.success) {
+    console.error("Email delivery failed:", result);
+    throw new Error(result.message || "Failed to send email");
+  }
+
+  return result;
+};
 
 const sendVerificationEmail = async (email, token) => {
   const verificationLink = `${process.env.CLIENT_URL}/verify-email?token=${token}`;
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+  await sendEmail({
     to: email,
     subject: "Verify your email",
     html: `
@@ -32,8 +46,7 @@ const sendVerificationEmail = async (email, token) => {
 const sendPasswordResetEmail = async (email, token) => {
   const resetLink = `${process.env.CLIENT_URL}/reset-password/${token}`;
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+  await sendEmail({
     to: email,
     subject: "Reset your Vidio password",
     html: `
@@ -65,8 +78,7 @@ const sendPasswordResetEmail = async (email, token) => {
 const sendEmailChangeVerificationEmail = async (email, token) => {
   const verificationLink = `${process.env.CLIENT_URL}/verify-email-change?token=${token}`;
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+  await sendEmail({
     to: email,
     subject: "Confirm your new Vidio email",
     html: `
