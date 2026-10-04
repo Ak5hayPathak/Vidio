@@ -1,24 +1,28 @@
 import fs from "fs";
+import fsp from "fs/promises";
 import path from "path";
 
 import {
   GetObjectCommand,
+  PutObjectCommand,
   ListObjectVersionsCommand,
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
-
-import { Upload } from "@aws-sdk/lib-storage";
 
 import { b2Client } from "../config/b2Client.js";
 import { APIError } from "../utils/APIError.js";
 
 const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 
-const MAX_UPLOAD_ATTEMPTS = 5;
+const MAX_UPLOAD_ATTEMPTS = 3;
 const INITIAL_RETRY_DELAY = 1000;
-const MAX_RETRY_DELAY = 30000;
+const MAX_RETRY_DELAY = 15000;
 
-// Wait before retrying a failed operation.
+const CONTENT_TYPES = {
+  ".m3u8": "application/vnd.apple.mpegurl",
+  ".ts": "video/mp2t",
+};
+
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Exponential backoff with jitter.
@@ -28,121 +32,68 @@ const getRetryDelay = (attempt) => {
     MAX_RETRY_DELAY
   );
 
-  const jitter = Math.random() * 1000;
-
-  return exponentialDelay + jitter;
+  return exponentialDelay + Math.random() * 1000;
 };
 
-// Upload a single file to B2 with retries.
+// Upload one file with a plain PutObject.
+// HLS segments are small, so multipart buffering would only waste memory.
 const uploadFileToB2 = async (
   filePath,
   key,
-  onProgress,
+  size,
   maxAttempts = MAX_UPLOAD_ATTEMPTS
 ) => {
-  let lastError;
-
-  const fileSize = fs.statSync(filePath).size;
+  const contentType =
+    CONTENT_TYPES[path.extname(filePath).toLowerCase()] ||
+    "application/octet-stream";
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    let upload;
+    // A fresh stream is required for every attempt.
+    const stream = fs.createReadStream(filePath);
 
     try {
-      console.log(`Uploading ${key}. Attempt ${attempt}/${maxAttempts}`);
-
-      // A fresh stream is required for every attempt.
-      const fileStream = fs.createReadStream(filePath);
-
-      upload = new Upload({
-        client: b2Client,
-
-        params: {
+      await b2Client.send(
+        new PutObjectCommand({
           Bucket: BUCKET_NAME,
           Key: key,
-          Body: fileStream,
-          ContentLength: fileSize,
-        },
-
-        // Number of concurrent multipart parts per file.
-        queueSize: 2,
-
-        // Multipart part size: 8 MiB.
-        partSize: 8 * 1024 * 1024,
-
-        leavePartsOnError: false,
-      });
-
-      upload.on("httpUploadProgress", (progress) => {
-        onProgress?.(progress.loaded || 0);
-      });
-
-      await upload.done();
-
-      console.log(`Successfully uploaded: ${key}`);
+          Body: stream,
+          ContentLength: size,
+          ContentType: contentType,
+        })
+      );
 
       return;
     } catch (error) {
-      lastError = error;
-
       console.error(
-        `Upload failed for ${key}. Attempt ${attempt}/${maxAttempts}`
+        `Upload failed for ${key} (attempt ${attempt}/${maxAttempts}): ` +
+          `${error.name} - ${error.message} ` +
+          `[status ${error.$metadata?.httpStatusCode ?? "n/a"}, ` +
+          `request ${error.$metadata?.requestId ?? "n/a"}]`
       );
 
-      console.error("Error name:", error.name);
-      console.error("Error message:", error.message);
-      console.error(
-        "HTTP status:",
-        error.$metadata?.httpStatusCode ?? "Unavailable"
-      );
-      console.error(
-        "B2 request ID:",
-        error.$metadata?.requestId ?? "Unavailable"
-      );
+      if (attempt === maxAttempts) throw error;
 
-      // Abort any unfinished multipart upload.
-      if (upload) {
-        try {
-          await upload.abort();
-        } catch (abortError) {
-          console.error(
-            `Failed to abort upload for ${key}:`,
-            abortError.message
-          );
-        }
-      }
-
-      if (attempt === maxAttempts) {
-        console.error(`All ${maxAttempts} upload attempts failed for ${key}`);
-
-        throw lastError;
-      }
-
-      const delay = getRetryDelay(attempt);
-
-      console.log(`Retrying ${key} in ${(delay / 1000).toFixed(1)} seconds...`);
-
-      await wait(delay);
+      await wait(getRetryDelay(attempt));
+    } finally {
+      // Always release the file descriptor, even after a failed request.
+      stream.destroy();
     }
   }
-
-  throw lastError;
 };
 
-// Recursively collect file paths from an HLS directory.
-const getFilesRecursively = (directoryPath) => {
-  const items = fs.readdirSync(directoryPath, {
-    withFileTypes: true,
-  });
+// Recursively collect files together with their sizes (stat once, reuse).
+const collectFiles = async (directoryPath) => {
+  const entries = await fsp.readdir(directoryPath, { withFileTypes: true });
+  const files = [];
 
-  let files = [];
+  for (const entry of entries) {
+    const entryPath = path.join(directoryPath, entry.name);
 
-  for (const item of items) {
-    const itemPath = path.join(directoryPath, item.name);
-
-    if (item.isDirectory()) {
-      files = files.concat(getFilesRecursively(itemPath));
+    if (entry.isDirectory()) {
+      files.push(...(await collectFiles(entryPath)));
     } else {
-      files.push(itemPath);
+      const { size } = await fsp.stat(entryPath);
+      files.push({ filePath: entryPath, size });
     }
   }
 
@@ -155,6 +106,7 @@ const deleteVideoDirectoryFromB2 = async (videoId) => {
 
   let keyMarker;
   let versionIdMarker;
+  let isTruncated = false;
 
   try {
     do {
@@ -175,54 +127,42 @@ const deleteVideoDirectoryFromB2 = async (videoId) => {
         VersionId: object.VersionId,
       }));
 
-      // S3 DeleteObjects supports a maximum of 1000 objects per request.
+      // DeleteObjects supports at most 1000 objects per request.
       for (let i = 0; i < objectsToDelete.length; i += 1000) {
         const batch = objectsToDelete.slice(i, i + 1000);
-
-        if (batch.length === 0) continue;
 
         const deleteResponse = await b2Client.send(
           new DeleteObjectsCommand({
             Bucket: BUCKET_NAME,
-            Delete: {
-              Objects: batch,
-              Quiet: false,
-            },
+            Delete: { Objects: batch, Quiet: true },
           })
         );
 
         if (deleteResponse.Errors?.length > 0) {
           console.error(
             "Some B2 objects could not be deleted:",
-            deleteResponse.Errors
+            deleteResponse.Errors.slice(0, 5)
           );
 
           throw new Error(
             `Failed to delete ${deleteResponse.Errors.length} B2 objects`
           );
         }
-
-        console.log(`Deleted ${batch.length} file versions from B2`);
       }
 
+      isTruncated = Boolean(listResponse.IsTruncated);
       keyMarker = listResponse.NextKeyMarker;
       versionIdMarker = listResponse.NextVersionIdMarker;
-    } while (keyMarker || versionIdMarker);
+    } while (isTruncated && (keyMarker || versionIdMarker));
 
     console.log(`Deleted all existing versions for video: ${videoId}`);
   } catch (error) {
-    console.error(`Failed to delete video versions from B2: ${videoId}`);
-
-    console.error("Error details:", {
+    console.error(`Failed to delete video versions from B2: ${videoId}`, {
       name: error?.name,
       message: error?.message,
-      code: error?.code,
       statusCode: error?.$metadata?.httpStatusCode,
       requestId: error?.$metadata?.requestId,
-      cause: error?.cause,
     });
-
-    console.dir(error, { depth: 5 });
 
     throw error;
   }
@@ -232,99 +172,95 @@ const deleteVideoDirectoryFromB2 = async (videoId) => {
 const uploadDirectoryToB2 = async (
   directoryPath,
   videoId,
-  concurrency = 5,
+  concurrency = 3,
   onProgress
 ) => {
-  const files = getFilesRecursively(directoryPath);
+  const files = await collectFiles(directoryPath);
 
   if (files.length === 0) {
     throw new Error(`No files found in directory: ${directoryPath}`);
   }
 
-  // Remove existing versions before starting a fresh upload.
-  await deleteVideoDirectoryFromB2(videoId);
-
-  // Calculate total size of all HLS files.
-  const totalBytes = files.reduce(
-    (total, filePath) => total + fs.statSync(filePath).size,
-    0
-  );
+  const totalBytes = files.reduce((total, file) => total + file.size, 0);
 
   if (totalBytes === 0) {
     throw new Error("HLS directory contains no uploadable data.");
   }
 
-  // Track uploaded bytes for each file.
-  const fileProgress = new Map();
+  // Remove existing versions before starting a fresh upload.
+  await deleteVideoDirectoryFromB2(videoId);
 
-  files.forEach((filePath) => {
-    fileProgress.set(filePath, 0);
-  });
+  let uploadedBytes = 0;
 
-  const reportProgress = () => {
-    const totalUploadedBytes = [...fileProgress.values()].reduce(
-      (total, bytes) => total + bytes,
-      0
-    );
+  const uploadOne = async ({ filePath, size }) => {
+    const relativePath = path.relative(directoryPath, filePath);
+    const key = path.join("videos", videoId, relativePath).replace(/\\/g, "/");
 
-    const progress = (totalUploadedBytes / totalBytes) * 100;
+    await uploadFileToB2(filePath, key, size);
+
+    uploadedBytes += size;
 
     onProgress?.({
-      progress: Math.min(100, progress),
+      progress: Math.min(100, (uploadedBytes / totalBytes) * 100),
       stage: "Uploading HLS",
     });
   };
 
-  // Upload files in batches to control concurrency.
-  for (let i = 0; i < files.length; i += concurrency) {
-    const batch = files.slice(i, i + concurrency);
+  // The master playlist goes last so it never points at missing renditions.
+  const isMaster = (file) => path.basename(file.filePath) === "master.m3u8";
+  const mainFiles = files.filter((file) => !isMaster(file));
+  const masterFiles = files.filter(isMaster);
 
-    await Promise.all(
-      batch.map(async (filePath) => {
-        const relativePath = path.relative(directoryPath, filePath);
+  // Fixed-size worker pool: no waiting on the slowest file in a batch.
+  let nextIndex = 0;
+  let failed = false;
 
-        const key = path
-          .join("videos", videoId, relativePath)
-          .replace(/\\/g, "/");
+  const runWorker = async () => {
+    while (!failed) {
+      const index = nextIndex++;
+      if (index >= mainFiles.length) return;
 
-        await uploadFileToB2(filePath, key, (uploadedBytes) => {
-          fileProgress.set(filePath, uploadedBytes);
-          reportProgress();
-        });
+      try {
+        await uploadOne(mainFiles[index]);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
+    }
+  };
 
-        // Mark the file complete after its upload succeeds.
-        fileProgress.set(filePath, fs.statSync(filePath).size);
+  const results = await Promise.allSettled(
+    Array.from(
+      { length: Math.min(concurrency, mainFiles.length) },
+      runWorker
+    )
+  );
 
-        reportProgress();
+  // allSettled guarantees no upload is still in flight when we throw,
+  // so the caller can safely clean up.
+  const rejected = results.find((result) => result.status === "rejected");
+  if (rejected) throw rejected.reason;
 
-        console.log(`Uploaded: ${key}`);
-      })
-    );
+  for (const file of masterFiles) {
+    await uploadOne(file);
   }
 
-  const masterPlaylistPath = `videos/${videoId}/master.m3u8`;
+  onProgress?.({ progress: 100, stage: "HLS upload completed" });
 
-  console.log("All files uploaded successfully!");
+  console.log(`All files uploaded for video: ${videoId}`);
 
-  onProgress?.({
-    progress: 100,
-    stage: "HLS upload completed",
-  });
-
-  return masterPlaylistPath;
+  return `videos/${videoId}/master.m3u8`;
 };
 
 // Retrieve a file from B2.
 const getFileFromB2 = async (key) => {
   try {
-    const response = await b2Client.send(
+    return await b2Client.send(
       new GetObjectCommand({
         Bucket: BUCKET_NAME,
         Key: key,
       })
     );
-
-    return response;
   } catch (error) {
     if (error.name === "NoSuchKey") {
       throw new APIError(404, "HLS file not found");
