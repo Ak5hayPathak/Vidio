@@ -13,7 +13,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --env-file=.env src/index.js",
-    "worker": "node --env-file=.env src/workers/video.worker.js"
+    "worker": "node --env-file=.env src/workers/video.worker.js",
+    "start": "node src/index.js",
+    "worker:prod": "node src/workers/video.worker.js",
+    "start:prod": "concurrently --kill-others \"npm start\" \"npm run worker:prod\""
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
@@ -26,6 +29,7 @@
     "bcrypt": "^6.0.0",
     "bullmq": "^6.3.4",
     "cloudinary": "^2.10.0",
+    "concurrently": "^10.0.5",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
