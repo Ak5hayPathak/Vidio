@@ -1,12 +1,12 @@
 {
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://vidio-an51.onrender.com/api/$1"
+      "source": "/api/:path*",
+      "destination": "https://vidio-an51.onrender.com/api/:path*"
     },
     {
-      "source": "/socket.io/(.*)",
-      "destination": "https://vidio-an51.onrender.com/socket.io/$1"
+      "source": "/socket.io/:path*",
+      "destination": "https://vidio-an51.onrender.com/socket.io/:path*"
     },
     {
       "source": "/(.*)",
