@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
-function PasswordInput({
+function ChangePasswordForm({
   id,
   label,
   value,
@@ -83,4 +83,4 @@ function PasswordInput({
   );
 }
 
-export default PasswordInput;
+export default ChangePasswordForm;
