@@ -3,7 +3,7 @@ import { Eye, EyeOff } from "lucide-react";
 
 function PasswordInput({
   id,
-  label,
+  label = "Password",
   value,
   onChange,
   placeholder,
@@ -11,6 +11,8 @@ function PasswordInput({
   disabled = false,
 }) {
   const [showPassword, setShowPassword] = useState(false);
+
+  const passwordLabel = (label ?? "Password").toLowerCase();
 
   return (
     <div>
@@ -71,9 +73,7 @@ function PasswordInput({
             disabled:cursor-not-allowed
           "
           aria-label={
-            showPassword
-              ? `Hide ${label.toLowerCase()}`
-              : `Show ${label.toLowerCase()}`
+            showPassword ? `Hide ${passwordLabel}` : `Show ${passwordLabel}`
           }
         >
           {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
