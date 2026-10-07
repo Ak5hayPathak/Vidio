@@ -17,6 +17,8 @@ const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 const MAX_UPLOAD_ATTEMPTS = 5;
 const INITIAL_RETRY_DELAY = 1000;
 const MAX_RETRY_DELAY = 30000;
+const QUEUE_SIZE = 2;
+const PART_SIZE = 8 * 1024 * 1024;
 
 // Wait before retrying a failed operation.
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -64,10 +66,10 @@ const uploadFileToB2 = async (
         },
 
         // Number of concurrent multipart parts per file.
-        queueSize: 2,
+        queueSize: QUEUE_SIZE,
 
         // Multipart part size: 8 MiB.
-        partSize: 8 * 1024 * 1024,
+        partSize: PART_SIZE,
 
         leavePartsOnError: false,
       });
