@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useSocket } from "../../../context/SocketContext.jsx";
@@ -25,36 +25,26 @@ const INITIAL_PROGRESS_STATE = {
 const UploadVideo = () => {
   const { socket } = useSocket();
 
-  // -----------------------------
-  // Form state
-  // -----------------------------
-
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState("");
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnail, setThumbnail] = useState(null);
 
-  // -----------------------------
-  // Upload / processing state
-  // -----------------------------
-
   const [uploadProgress, setUploadProgress] = useState(0);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStage, setProcessingStage] = useState("");
-
   const [uploadStatus, setUploadStatus] = useState("idle");
   const [videoId, setVideoId] = useState(null);
 
-  // -----------------------------
-  // Error state
-  // -----------------------------
-
   const [error, setError] = useState("");
 
-  // -----------------------------
-  // Derived state
-  // -----------------------------
+  /*
+   * Refs are used here because socket events can arrive before
+   * React finishes updating state with setVideoId().
+   */
+  const videoIdRef = useRef(null);
+  const pendingProcessingEventsRef = useRef(new Map());
 
   const isBusy =
     uploadStatus === "uploading" ||
@@ -65,23 +55,11 @@ const UploadVideo = () => {
     Boolean(videoFile) &&
     !isBusy;
 
-  // -----------------------------
-  // Reset progress
-  // -----------------------------
-
   const resetProgress = useCallback(() => {
     setUploadProgress(INITIAL_PROGRESS_STATE.uploadProgress);
-    setProcessingProgress(
-      INITIAL_PROGRESS_STATE.processingProgress,
-    );
-    setProcessingStage(
-      INITIAL_PROGRESS_STATE.processingStage,
-    );
+    setProcessingProgress(INITIAL_PROGRESS_STATE.processingProgress);
+    setProcessingStage(INITIAL_PROGRESS_STATE.processingStage);
   }, []);
-
-  // -----------------------------
-  // Reset entire form
-  // -----------------------------
 
   const resetForm = useCallback(() => {
     setTitle(INITIAL_FORM_STATE.title);
@@ -92,95 +70,102 @@ const UploadVideo = () => {
 
     resetProgress();
 
+    videoIdRef.current = null;
+    pendingProcessingEventsRef.current.clear();
+
     setVideoId(null);
     setUploadStatus("idle");
     setError("");
   }, [resetProgress]);
 
-  // -----------------------------
-  // Listen for processing events
-  // -----------------------------
+  /*
+   * Applies a processing event to the UI.
+   *
+   * Kept separate from the socket listener so we can also apply
+   * an event that arrived before the upload request finished.
+   */
+  const applyProcessingProgress = useCallback((data) => {
+    if (!data) return;
 
+    console.log("Video processing progress:", data);
+
+    if (
+      data.status === "failed" ||
+      data.stage === "failed"
+    ) {
+      setUploadStatus("failed");
+      setError(
+        data.message ||
+          "Video processing failed. Please try again.",
+      );
+      return;
+    }
+
+    if (
+      data.status === "ready" ||
+      data.status === "completed" ||
+      data.stage === "completed"
+    ) {
+      setProcessingProgress(100);
+      setProcessingStage("completed");
+      setUploadStatus("completed");
+      setError("");
+      return;
+    }
+
+    const rawProgress = Number(data.progress);
+
+    const progress = Number.isFinite(rawProgress)
+      ? Math.min(100, Math.max(0, Math.round(rawProgress)))
+      : 0;
+
+    setProcessingProgress(progress);
+    setProcessingStage(
+      data.stage || "Processing video",
+    );
+    setUploadStatus("processing");
+  }, []);
+
+  /*
+   * IMPORTANT:
+   * This listener is attached whenever the socket exists,
+   * NOT whenever videoId exists.
+   *
+   * That prevents the race condition where the worker emits
+   * an event before React has received/set the video ID.
+   */
   useEffect(() => {
     if (!socket) return;
 
     const handleProcessingProgress = (data) => {
-      if (!data) return;
+      if (!data?.videoId) return;
+
+      const incomingVideoId = String(data.videoId);
 
       /*
-       * Ignore events that don't belong to the
-       * currently uploaded video.
-       *
-       * Before videoId exists, there is nothing
-       * to process, so ignore the event.
+       * Always remember the latest event for this video.
+       * If the upload request hasn't returned yet, we'll apply
+       * this event once we receive the video ID.
        */
-      if (
-        !videoId ||
-        String(data.videoId) !== String(videoId)
-      ) {
-        return;
-      }
-
-      console.log(
-        "Video processing progress:",
+      pendingProcessingEventsRef.current.set(
+        incomingVideoId,
         data,
       );
 
-      // -----------------------------
-      // Processing failed
-      // -----------------------------
+      const currentVideoId = videoIdRef.current;
 
+      /*
+       * This event belongs to another upload, or our current
+       * upload hasn't received its ID yet.
+       */
       if (
-        data.status === "failed" ||
-        data.stage === "failed"
+        !currentVideoId ||
+        incomingVideoId !== String(currentVideoId)
       ) {
-        setUploadStatus("failed");
-
-        setError(
-          data.message ||
-            "Video processing failed. Please try again.",
-        );
-
         return;
       }
 
-      // -----------------------------
-      // Processing completed
-      // -----------------------------
-
-      if (
-        data.status === "ready" ||
-        data.status === "completed" ||
-        data.stage === "completed"
-      ) {
-        setProcessingProgress(100);
-        setProcessingStage("completed");
-        setUploadStatus("completed");
-        setError("");
-
-        return;
-      }
-
-      // -----------------------------
-      // Normal progress
-      // -----------------------------
-
-      const rawProgress = Number(data.progress);
-
-      const progress = Number.isFinite(rawProgress)
-        ? Math.min(
-            100,
-            Math.max(0, Math.round(rawProgress)),
-          )
-        : 0;
-
-      setProcessingProgress(progress);
-
-      setProcessingStage(
-        data.stage || "Processing video",
-      );
-
-      setUploadStatus("processing");
+      applyProcessingProgress(data);
     };
 
     socket.on(
@@ -194,31 +179,23 @@ const UploadVideo = () => {
         handleProcessingProgress,
       );
     };
-  }, [socket, videoId]);
-
-  // -----------------------------
-  // Handle video upload
-  // -----------------------------
+  }, [socket, applyProcessingProgress]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (isBusy) return;
 
-    // -----------------------------
-    // Validate form
-    // -----------------------------
-
     if (!title.trim() || !videoFile) {
       setError("Please provide a title and video.");
       return;
     }
 
-    // -----------------------------
-    // Initialize upload
-    // -----------------------------
-
     setError("");
+
+    videoIdRef.current = null;
+    pendingProcessingEventsRef.current.clear();
+
     setVideoId(null);
     resetProgress();
     setUploadStatus("uploading");
@@ -246,33 +223,56 @@ const UploadVideo = () => {
         },
       );
 
-      // -----------------------------
-      // Validate server response
-      // -----------------------------
-
       if (!uploadedVideo?._id) {
         throw new Error(
           "The server did not return a valid video ID.",
         );
       }
 
-      // -----------------------------
-      // Start processing state
-      // -----------------------------
+      const uploadedVideoId = String(uploadedVideo._id);
 
-      setVideoId(uploadedVideo._id);
+      /*
+       * Update the ref FIRST.
+       *
+       * Socket events now know which video belongs to the
+       * current upload even before React state updates.
+       */
+      videoIdRef.current = uploadedVideoId;
+
+      setVideoId(uploadedVideoId);
 
       setUploadProgress(100);
       setProcessingProgress(0);
       setProcessingStage("Processing thumbnail");
       setUploadStatus("processing");
 
+      /*
+       * The worker may have already emitted one or more
+       * processing events before the upload request returned.
+       *
+       * Apply the latest cached event immediately.
+       */
+      const pendingEvent =
+        pendingProcessingEventsRef.current.get(
+          uploadedVideoId,
+        );
+
+      if (pendingEvent) {
+        pendingProcessingEventsRef.current.delete(
+          uploadedVideoId,
+        );
+
+        applyProcessingProgress(pendingEvent);
+      }
+
       console.log(
         "Video uploaded successfully:",
-        uploadedVideo._id,
+        uploadedVideoId,
       );
     } catch (err) {
       console.error("Video upload failed:", err);
+
+      videoIdRef.current = null;
 
       setUploadStatus("error");
 
@@ -284,24 +284,13 @@ const UploadVideo = () => {
     }
   };
 
-  // -----------------------------
-  // Cancel / reset
-  // -----------------------------
-
   const handleCancel = () => {
     if (isBusy) return;
-
     resetForm();
   };
 
-  // -----------------------------
-  // Render
-  // -----------------------------
-
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      {/* Page heading */}
-
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-white">
           Upload Video
@@ -312,12 +301,7 @@ const UploadVideo = () => {
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-6"
-      >
-        {/* Upload form */}
-
+      <form onSubmit={handleSubmit} className="space-y-6">
         <VideoUploadForm
           title={title}
           setTitle={setTitle}
@@ -332,16 +316,12 @@ const UploadVideo = () => {
           disabled={isBusy}
         />
 
-        {/* Upload / processing progress */}
-
         <VideoUploadProgress
           uploadProgress={uploadProgress}
           processingProgress={processingProgress}
           processingStage={processingStage}
           uploadStatus={uploadStatus}
         />
-
-        {/* Error */}
 
         {error && (
           <div
@@ -352,15 +332,12 @@ const UploadVideo = () => {
           </div>
         )}
 
-        {/* Completed */}
-
         {uploadStatus === "completed" && videoId && (
           <div
             role="status"
             className="rounded-lg border border-green-900 bg-green-950/20 px-4 py-3 text-sm text-green-400"
           >
             Your video has been processed successfully.{" "}
-
             <Link
               to={`/video/watch/${videoId}`}
               className="font-medium underline"
@@ -369,8 +346,6 @@ const UploadVideo = () => {
             </Link>
           </div>
         )}
-
-        {/* Actions */}
 
         <VideoUploadActions
           uploadStatus={uploadStatus}
