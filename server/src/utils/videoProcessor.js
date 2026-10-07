@@ -253,6 +253,9 @@ const generateVideoQuality = async (
       "libx264",
       //uses the H.264 video codec
 
+      "-preset",
+      "veryfast",
+
       "-b:v",
       quality.bitrate,
       //sets the video bitrate
@@ -396,20 +399,18 @@ const processVideo = async (inputPath, onProgress) => {
       });
     };
 
-    await Promise.all(
-      supportedQualities.map((quality) =>
-        generateVideoQuality(
-          inputPath,
-          quality,
-          videoId,
-          duration,
-          (progress) => {
-            qualityProgress.set(quality.name, progress);
-            reportOverallProgress();
-          }
-        )
-      )
-    );
+    for (const quality of supportedQualities) {
+      await generateVideoQuality(
+        inputPath,
+        quality,
+        videoId,
+        duration,
+        (progress) => {
+          qualityProgress.set(quality.name, progress);
+          reportOverallProgress();
+        }
+      );
+    }
 
     createMasterPlaylist(supportedQualities, videoId);
 

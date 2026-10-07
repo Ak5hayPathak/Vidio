@@ -38,7 +38,7 @@ const processAndUploadVideo = async (inputPath, onProgress, maxRetries = 5) => {
         videoFile = await uploadDirectoryToB2(
           outputDirectory,
           videoId,
-          5,
+          3,
           (progressData) => {
             // Convert B2 upload progress from 0-100 to 70-98
             const overallProgress = 70 + (progressData.progress * 28) / 100;

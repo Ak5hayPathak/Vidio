@@ -334,6 +334,7 @@ const videoWorker = new Worker(
   },
   {
     connection: redisConnection,
+    concurrency: 1,
   }
 );
 
