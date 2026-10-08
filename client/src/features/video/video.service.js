@@ -36,6 +36,7 @@ const getVideo = async (videoId) => {
 
   return response.data.data;
 };
+
 const getStreamToken = async (videoId) => {
   const response = await api.post(`/videos/${videoId}/stream-token`);
 
@@ -91,6 +92,11 @@ const deleteVideo = async (videoId) => {
   return response.data.data;
 };
 
+const toggleVideoLike = async (videoId) => {
+  const response = await api.post(`/likes/toggle/v/${videoId}`);
+  return response.data.data;
+}
+
 export {
   getHlsFileUrl,
   getStreamToken,
@@ -101,4 +107,5 @@ export {
   togglePublishStatus,
   deleteVideo,
   uploadVideo,
+  toggleVideoLike,
 };

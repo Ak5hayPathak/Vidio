@@ -349,7 +349,7 @@ const getVideoById = asyncHandler(async (req, res) => {
         },
 
         isLiked: {
-          $in: [req.user.id, "$likes.likedBy"],
+          $in: [new mongoose.Types.ObjectId(req.user._id), "$likes.likedBy"],
         },
 
         subscriberCount: {
@@ -357,7 +357,10 @@ const getVideoById = asyncHandler(async (req, res) => {
         },
 
         isSubscribed: {
-          $in: [req.user.id, "$subscribers.subscriber"],
+          $in: [
+            new mongoose.Types.ObjectId(req.user._id),
+            "$subscribers.subscriber",
+          ],
         },
       },
     },

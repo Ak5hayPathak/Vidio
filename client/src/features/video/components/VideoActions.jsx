@@ -1,15 +1,52 @@
+import { useEffect, useState } from "react";
 import {
   Heart,
   MoreHorizontal,
   Share2,
 } from "lucide-react";
 
+import { toggleVideoLike } from "../video.service.js";
+
 function VideoActions({ video }) {
+  const [liked, setLiked] = useState(video.isLiked || false);
+  const [likesCount, setLikesCount] = useState(video.likesCount || 0);
+
+  // Keep local state synchronized when a different video is loaded
+  useEffect(() => {
+    setLiked(video.isLiked || false);
+    setLikesCount(video.likesCount || 0);
+  }, [video._id, video.isLiked, video.likesCount]);
+
+  const handleLike = async () => {
+    const previousLiked = liked;
+
+    // Optimistic UI update
+    setLiked(!previousLiked);
+
+    setLikesCount((prev) =>
+      previousLiked ? prev - 1 : prev + 1
+    );
+
+    try {
+      await toggleVideoLike(video._id);
+    } catch (error) {
+      // Revert UI if the request fails
+      setLiked(previousLiked);
+
+      setLikesCount((prev) =>
+        previousLiked ? prev + 1 : prev - 1
+      );
+
+      console.error("Failed to toggle video like:", error);
+    }
+  };
+
   return (
     <div className="flex items-center gap-2">
       {/* Like */}
       <button
         type="button"
+        onClick={handleLike}
         className="
           flex
           items-center
@@ -30,11 +67,13 @@ function VideoActions({ video }) {
       >
         <Heart
           size={17}
-          fill={video.isLiked ? "currentColor" : "none"}
-          className={video.isLiked ? "text-red-500" : ""}
+          fill={liked ? "currentColor" : "none"}
+          className={liked ? "text-red-500" : "text-gray-200"}
         />
 
-        {video.likesCount?.toLocaleString() || 0}
+        <span className={liked ? "text-red-500" : "text-gray-200"}>
+          {likesCount.toLocaleString()}
+        </span>
       </button>
 
       {/* Share */}

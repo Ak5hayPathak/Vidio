@@ -135,6 +135,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
       {
         $match: {
           video: new mongoose.Types.ObjectId(videoId),
+          parentComment: null,
         },
       },
 
@@ -178,6 +179,39 @@ const getVideoComments = asyncHandler(async (req, res) => {
           isLiked: {
             $in: [new mongoose.Types.ObjectId(req.user._id), "$likes.likedBy"],
           },
+        },
+      },
+
+      {
+        $lookup: {
+          from: "comments",
+          localField: "_id",
+          foreignField: "parentComment",
+          as: "replies",
+        },
+      },
+
+      {
+        $addFields: {
+          repliesCount: {
+            $size: "$replies",
+          },
+        },
+      },
+
+      {
+        $project: {
+          content: 1,
+          video: 1,
+          owner: 1,
+          isEdited: 1,
+          parentComment: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          ownerDetails: 1,
+          likesCount: 1,
+          isLiked: 1,
+          repliesCount: 1,
         },
       },
 

@@ -37,9 +37,6 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
 
   if (alreadyLiked) {
     await alreadyLiked.deleteOne();
-    return res
-      .status(200)
-      .json(new APIResponse(200, null, "Video unliked successfully"));
   } else {
     const like = await Like.create({
       video: videoId,
@@ -59,11 +56,24 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
 
       io.to(`userId:${video.owner}`).emit("notification", notification);
     }
-
-    return res
-      .status(201)
-      .json(new APIResponse(201, null, "Video liked successfully"));
   }
+
+  const likesCount = await Like.countDocuments({
+    video: videoId,
+  });
+
+  const isLiked = !alreadyLiked;
+
+  return res.status(200).json(
+    new APIResponse(
+      200,
+      {
+        isLiked,
+        likesCount,
+      },
+      isLiked ? "Video liked successfully" : "Video unliked successfully"
+    )
+  );
 });
 
 const toggleCommentLike = asyncHandler(async (req, res) => {
