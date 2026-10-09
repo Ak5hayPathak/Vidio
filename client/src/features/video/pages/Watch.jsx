@@ -7,7 +7,7 @@ import VideoPlayer from "../components/VideoPlayer.jsx";
 import VideoChannel from "../components/VideoChannel.jsx";
 import VideoActions from "../components/VideoActions.jsx";
 import VideoDescription from "../components/VideoDescription.jsx";
-//import RecommendedVideos from "../components/RecommendedVideos.jsx";
+import RecommendedVideos from "../components/RecommendedVideos.jsx";
 import CommentSection from "../../../components/comments/CommentSection.jsx";
 
 function Watch() {
@@ -207,7 +207,7 @@ function Watch() {
           </section>
 
           {/* Recommended videos */}
-          {/* <RecommendedVideos /> */}
+          <RecommendedVideos />
         </div>
       </main>
     </div>

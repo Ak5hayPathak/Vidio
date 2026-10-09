@@ -194,20 +194,15 @@ const getLikedVideos = asyncHandler(async (req, res) => {
   if (!req.user) {
     throw new APIError(401, "Unauthorized Request!");
   }
-
   const { page = 1, limit = 10, sortType = "desc" } = req.query;
-
   const likedVideos = await Like.aggregatePaginate(
     Like.aggregate([
       {
         $match: {
           likedBy: new mongoose.Types.ObjectId(req.user._id),
-          video: {
-            $exists: true,
-          },
+          video: { $exists: true, $ne: null },
         },
       },
-
       {
         $lookup: {
           from: "videos",
@@ -223,60 +218,36 @@ const getLikedVideos = asyncHandler(async (req, res) => {
                 as: "ownerDetails",
               },
             },
-
-            {
-              $unwind: "$ownerDetails",
-            },
-
+            { $unwind: "$ownerDetails" },
             {
               $project: {
-                videoFile: 1,
+                _id: 1,
                 title: 1,
                 thumbnail: 1,
+                duration: 1,
                 views: 1,
-                ownerDetails: {
-                  username: 1,
-                  avatar: 1,
-                  fullName: 1,
-                },
+                createdAt: 1,
+                "ownerDetails.username": 1,
+                "ownerDetails.avatar": 1,
+                "ownerDetails.fullName": 1,
               },
             },
           ],
         },
       },
-
-      {
-        $unwind: "$videos",
-      },
-
-      {
-        $sort: {
-          createdAt: sortType === "asc" ? 1 : -1,
-        },
-      },
-      {
-        $project: {
-          // Final cleanup
-          _id: 1,
-          videos: 1,
-        },
-      },
+      { $unwind: "$videos" },
+      { $sort: { createdAt: sortType === "asc" ? 1 : -1 } },
+      { $project: { _id: 1, videos: 1 } },
     ]),
-
-    {
-      page: Number(page),
-      limit: Number(limit),
-    }
+    { page: Number(page), limit: Number(limit) }
   );
-
   if (likedVideos.docs.length === 0) {
     throw new APIError(404, "No liked videos found");
   }
-
   return res
     .status(200)
     .json(
-      new APIResponse(200, likedVideos, "liked videos fetched successfully")
+      new APIResponse(200, likedVideos, "Liked videos fetched successfully")
     );
 });
 

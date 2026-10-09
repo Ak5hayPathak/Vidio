@@ -1,4 +1,12 @@
-import { House, UserCircle, UsersRound, History } from "lucide-react";
+import {
+  House,
+  UserCircle,
+  UsersRound,
+  History,
+  Heart,
+  Clock,
+  Video,
+} from "lucide-react";
 
 const youLinks = [
   {
@@ -7,21 +15,18 @@ const youLinks = [
     label: "Home",
     end: true,
   },
-
   {
     to: "/channel",
     icon: UserCircle,
     label: "Your Channel",
     end: true,
   },
-
   {
     to: "/subscriptions",
     icon: UsersRound,
     label: "Subscriptions",
     end: true,
   },
-
   {
     to: "/history",
     icon: History,
@@ -30,4 +35,26 @@ const youLinks = [
   },
 ];
 
-export { youLinks };
+const videosLinks = [
+  {
+    to: "/your-videos",
+    icon: Video,
+    label: "Your Videos",
+    end: true,
+  },
+
+  {
+    to: "/liked-videos",
+    icon: Heart,
+    label: "Liked Videos",
+    end: true,
+  },
+  {
+    to: "/watch-later",
+    icon: Clock,
+    label: "Watch Later",
+    end: true,
+  },
+];
+
+export { youLinks, videosLinks };

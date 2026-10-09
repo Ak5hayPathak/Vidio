@@ -1,20 +1,13 @@
 import { Link } from "react-router-dom";
-import VideoCard from "../../video/components/VideoCard.jsx";
+import VideoCard from "../../../components/videoCard/VideoCard.jsx";
 import EmptyVideos from "./EmptyVideos.jsx";
 
-function ChannelVideos({
-  videos,
-  channel,
-  formatCount,
-  isOwner = false,
-}) {
+function ChannelVideos({ videos, channel, formatCount, isOwner = false }) {
   return (
     <section className="mt-8">
       <div className="mb-5 flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold">
-            Videos
-          </h2>
+          <h2 className="text-xl font-semibold">Videos</h2>
 
           <p className="mt-1 text-sm text-gray-500">
             {isOwner
@@ -62,18 +55,18 @@ function ChannelVideos({
           {videos.map((video) => (
             <VideoCard
               key={video._id}
+              variant="default"
+              isOwner={isOwner}
               video={{
                 id: video._id,
                 thumbnail: video.thumbnail,
                 title: video.title,
-                channel: channel.name,
+                channel: channel.username ?? channel.name,
+                avatar: channel.avatar ?? "",
                 views: `${formatCount(video.views)} views`,
-                uploaded: new Date(
-                  video.createdAt,
-                ).toLocaleDateString(),
+                uploaded: new Date(video.createdAt).toLocaleDateString(),
                 duration: video.duration,
               }}
-              isOwner={isOwner}
             />
           ))}
         </div>

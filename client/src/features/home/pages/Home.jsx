@@ -1,4 +1,4 @@
-import VideoCard from "../../video/components/VideoCard.jsx";
+import VideoCard from "../../../components/videoCard/VideoCard.jsx";
 
 const videos = [
   {

@@ -37,6 +37,11 @@ const getVideo = async (videoId) => {
   return response.data.data;
 };
 
+const getMyVideos = async () => {
+  const response = await api.get("/videos");
+  return response.data.data;
+};
+
 const getStreamToken = async (videoId) => {
   const response = await api.post(`/videos/${videoId}/stream-token`);
 
@@ -95,17 +100,43 @@ const deleteVideo = async (videoId) => {
 const toggleVideoLike = async (videoId) => {
   const response = await api.post(`/likes/toggle/v/${videoId}`);
   return response.data.data;
-}
+};
+
+const getLikedVideos = async () => {
+  const response = await api.get("/likes/videos");
+
+  return response.data.data;
+};
+
+const getWatchLaterVideos = async () => {
+  const response = await api.get("/watch-later/");
+  return response.data.data;
+};
+
+const addToWatchLater = async (videoId) => {
+  const response = await api.patch(`/watch-later/add/${videoId}`);
+  return response.data.data;
+};
+
+const removeFromWatchLater = async (videoId) => {
+  const response = await api.patch(`/watch-later/remove/${videoId}`);
+  return response.data.data;
+};
 
 export {
   getHlsFileUrl,
   getStreamToken,
   getStreamUrl,
   getVideo,
+  getMyVideos,
   recordVideoView,
   updateVideo,
   togglePublishStatus,
   deleteVideo,
   uploadVideo,
   toggleVideoLike,
+  getLikedVideos,
+  getWatchLaterVideos,
+  addToWatchLater,
+  removeFromWatchLater,
 };

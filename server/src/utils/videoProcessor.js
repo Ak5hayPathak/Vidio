@@ -412,6 +412,22 @@ const processVideo = async (inputPath, onProgress) => {
       );
     }
 
+    //simulataneously generating qualities
+    // await Promise.all(
+    //   supportedQualities.map((quality) =>
+    //     generateVideoQuality(
+    //       inputPath,
+    //       quality,
+    //       videoId,
+    //       duration,
+    //       (progress) => {
+    //         qualityProgress.set(quality.name, progress);
+    //         reportOverallProgress();
+    //       }
+    //     )
+    //   )
+    // );
+
     createMasterPlaylist(supportedQualities, videoId);
 
     // Report that HLS generation has completed

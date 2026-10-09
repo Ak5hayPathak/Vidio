@@ -26,6 +26,10 @@ import Subscribers from "./features/subscriptions/pages/Subscribers.jsx";
 import Watch from "./features/video/pages/Watch.jsx";
 import EditVideo from "./features/video/pages/EditVideo.jsx";
 import UploadVideo from "./features/video/pages/UploadVideo.jsx";
+import LikedVideos from "./features/video/pages/LikedVideos.jsx";
+import WatchLater from "./features/video/pages/WatchLater.jsx";
+import YourVideos from "./features/video/pages/YourVideos.jsx";
+
 // import SocketTest from "./components/SocketTest.jsx";
 
 function AppLayout() {
@@ -103,6 +107,16 @@ function App() {
             <Route path="/video/watch/:videoId" element={<Watch/>} />
             <Route path="/video/edit/:videoId" element={<EditVideo/>} />
             <Route path="/video/upload" element={<UploadVideo/>} />
+
+            {/* Liked-Videos */}
+            <Route path="/liked-videos" element={<LikedVideos />} />
+
+            {/* Watch Later Videos */}
+            <Route path="/watch-later" element={<WatchLater />} />
+
+            {/* Your Videos */}
+            <Route path="/your-videos" element={<YourVideos />} />
+
           </Route>
         </Route>
       </Routes>
