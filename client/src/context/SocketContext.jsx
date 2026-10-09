@@ -24,6 +24,7 @@ export function SocketProvider({ children }) {
 
     const newSocket = io(/*SOCKET_URL,*/{
       withCredentials: true,
+      transports: ["websocket"],
     });
 
     newSocket.on("connect", () => {
