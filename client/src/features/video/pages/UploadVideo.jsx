@@ -87,7 +87,7 @@ const UploadVideo = () => {
   const applyProcessingProgress = useCallback((data) => {
     if (!data) return;
 
-    console.log("Video processing progress:", data);
+    //console.log("Video processing progress:", data);
 
     if (
       data.status === "failed" ||
