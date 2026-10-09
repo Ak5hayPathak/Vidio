@@ -96,7 +96,7 @@ export function SocketProvider({ children }) {
     });
 
     newSocket.on("video-processing-progress", (data) => {
-      console.log("[Socket] Progress received:", data);
+      //console.log("[Socket] Progress received:", data);
     });
 
     newSocket.on("notification", (data) => {
