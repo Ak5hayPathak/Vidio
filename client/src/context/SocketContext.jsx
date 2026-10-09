@@ -5,8 +5,7 @@ import { useAuth } from "./AuthContext.jsx";
 
 const SocketContext = createContext(null);
 
-const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL || "http://localhost:15000";
+//const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:15000";
 
 export function SocketProvider({ children }) {
   const { user, loading } = useAuth();
@@ -22,7 +21,7 @@ export function SocketProvider({ children }) {
 
     console.log("[Socket] Connecting to:", SOCKET_URL);
 
-    const newSocket = io(SOCKET_URL, {
+    const newSocket = io(/*SOCKET_URL,*/{
       withCredentials: true,
     });
 
