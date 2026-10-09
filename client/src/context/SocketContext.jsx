@@ -4,8 +4,8 @@ import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext.jsx";
 
 const SocketContext = createContext(null);
+const SOCKET_URL = "https://vidio-an51.onrender.com";
 
-const SOCKET_URL = ""
 //const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:15000";
 
 export function SocketProvider({ children }) {
@@ -22,16 +22,15 @@ export function SocketProvider({ children }) {
 
     console.log("[Socket] Connecting to:", SOCKET_URL);
 
-    const newSocket = io(/*SOCKET_URL,*/{
+    const newSocket = io(SOCKET_URL, {
       withCredentials: true,
-      transports: ["websocket"],
     });
 
     newSocket.on("connect", () => {
       console.log("[Socket] Connected:", newSocket.id);
       console.log(
         "[Socket] Initial transport:",
-        newSocket.io.engine.transport.name
+        newSocket.io.engine.transport.name,
       );
     });
 
