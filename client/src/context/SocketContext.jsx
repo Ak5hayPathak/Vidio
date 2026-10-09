@@ -14,7 +14,7 @@ const SocketContext = createContext(null);
 
 const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL ||
-  "https://vidio-an51.onrender.com";
+  "http://localhost:5173/";
 
 export function SocketProvider({ children }) {
   const { user, loading } = useAuth();
