@@ -19,6 +19,7 @@ import {
   resetPassword,
   changeEmail,
   verifyEmailChange,
+  generateSocketToken,
 } from "../controllers/user.controller.js";
 
 import {
@@ -62,6 +63,8 @@ router.route("/logout").post(verifyJWT, logoutUser);
 // Refresh access token
 router.route("/refresh-token").post(refreshAccessToken);
 
+//Get socket token
+router.route("/socket-token").get(verifyJWT, generateSocketToken);
 
 /* Email Verification                                                         */
 

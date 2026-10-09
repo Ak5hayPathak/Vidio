@@ -16,6 +16,7 @@ import {
   sendEmailChangeVerificationEmail,
 } from "../services/email.service.js";
 import { options } from "../config/configurations.js";
+import jwt from "jsonwebtoken";
 
 const registerUser = asyncHandler(async (req, res) => {
   const { fullName, email, username, password } = req.body;
@@ -969,6 +970,21 @@ const generateAccessAndRefreshToken = async (userId, rememberMe) => {
   }
 };
 
+const generateSocketToken = asyncHandler(async (req, res) => {
+  const token = jwt.sign(
+    {
+      _id: req.user._id,
+      tokenType: "socket",
+    },
+    process.env.ACCESS_TOKEN_SECRET,
+    { expiresIn: "2m" }
+  );
+
+  return res
+    .status(200)
+    .json(new APIResponse(200, { token }, "Socket token generated"));
+});
+
 export {
   registerUser,
   loginUser,
@@ -989,4 +1005,5 @@ export {
   removeVideoFromWatchHistory,
   changeEmail,
   verifyEmailChange,
+  generateSocketToken,
 };

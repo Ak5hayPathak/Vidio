@@ -9,38 +9,28 @@ const initializeSocketIO = (httpServer) => {
   const io = new Server(httpServer, socketConfig);
 
   // Authenticate Socket.IO connections using the access token cookie
+
+  // Authenticate Socket.IO connections using a short-lived socket token
   io.use((socket, next) => {
     try {
-      const cookies = socket.handshake.headers.cookie;
+      const token = socket.handshake.auth?.token;
 
-      if (!cookies) {
-        return next(new Error("Authentication cookie missing"));
+      if (!token) {
+        return next(new Error("Socket authentication token missing"));
       }
 
-      const accessToken = cookies
-        .split(";")
-        .map((cookie) => cookie.trim())
-        .find((cookie) => cookie.startsWith("accessToken="))
-        ?.substring("accessToken=".length);
+      const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
-      if (!accessToken) {
-        return next(new Error("Access token missing"));
+      if (decodedToken.tokenType !== "socket") {
+        return next(new Error("Invalid socket token"));
       }
-
-      const decodedToken = jwt.verify(
-        decodeURIComponent(accessToken),
-        process.env.ACCESS_TOKEN_SECRET
-      );
 
       socket.user = decodedToken;
-
-      console.log("Socket user authenticated!");
 
       next();
     } catch (error) {
       console.error("Socket authentication error:", error.message);
-
-      next(new Error("Authentication failed"));
+      next(new Error("Socket authentication failed"));
     }
   });
 
