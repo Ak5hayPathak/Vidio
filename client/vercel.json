@@ -5,10 +5,6 @@
       "destination": "https://vidio-an51.onrender.com/api/:path*"
     },
     {
-      "source": "/socket.io/:path*",
-      "destination": "https://vidio-an51.onrender.com/socket.io/:path*"
-    },
-    {
       "source": "/(.*)",
       "destination": "/"
     }
