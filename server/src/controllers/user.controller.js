@@ -16,7 +16,6 @@ import {
   sendEmailChangeVerificationEmail,
 } from "../services/email.service.js";
 import { options } from "../config/configurations.js";
-import jwt from "jsonwebtoken";
 
 const registerUser = asyncHandler(async (req, res) => {
   const { fullName, email, username, password } = req.body;
