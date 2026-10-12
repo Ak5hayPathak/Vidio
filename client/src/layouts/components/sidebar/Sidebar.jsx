@@ -4,7 +4,7 @@ import MobileBackdrop from "./MobileBackdrop.jsx";
 import MobileHeader from "./MobileHeader.jsx";
 import SidebarLabel from "./SidebarLabel.jsx";
 import SidebarCollapseButton from "./SidebarCollapseButton.jsx";
-import { youLinks, videosLinks } from "./sidebarLinks.js";
+import { youLinks, videosLinks, playlistsLinks } from "./sidebarLinks.js";
 
 function Sidebar({ mobileOpen, setMobileOpen }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -78,6 +78,12 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
           <SidebarLabel collapsed={collapsed}>Videos</SidebarLabel>
 
           {renderLinks(videosLinks)}
+
+          {/* Divider */}
+          <div className="my-3 border-t border-white/10" />
+          <SidebarLabel collapsed={collapsed}>Playlist</SidebarLabel>
+
+          {renderLinks(playlistsLinks)}
         </nav>
       </aside>
     </>

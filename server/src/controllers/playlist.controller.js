@@ -12,15 +12,20 @@ const createPlaylist = asyncHandler(async (req, res) => {
     throw new APIError(401, "Unauthorized request!");
   }
 
-  const { name, description = "" } = req.body;
+  const { name, description = "", isPublic = true } = req.body;
 
   if (!name?.trim()) {
     throw new APIError(400, "Playlist name is required!");
   }
 
+  if (typeof isPublic !== "boolean") {
+    throw new APIError(400, "Playlist visibility must be a boolean!");
+  }
+
   const playlist = await Playlist.create({
     name,
     description,
+    isPublic,
     owner: req.user._id,
   });
 
@@ -49,12 +54,6 @@ const getPlaylistById = asyncHandler(async (req, res) => {
 
   const { page = 1, limit = 10, sortType = "desc" } = req.query;
 
-  //   const playlistExists = await Playlist.findById(playlist);
-
-  //   if(!playlistExists){
-  //     throw new APIError(404, "Playlist not found!");
-  //   }
-
   const pageNumber = Number(page);
   const limitNumber = Number(limit);
   const skip = (pageNumber - 1) * limitNumber;
@@ -63,18 +62,21 @@ const getPlaylistById = asyncHandler(async (req, res) => {
     {
       $match: {
         _id: new mongoose.Types.ObjectId(playlistId),
-        isPublic: true, // matched if it is public
+        $or: [
+          { isPublic: true },
+          {
+            owner: new mongoose.Types.ObjectId(
+              req.user._id
+            ),
+          },
+        ],
       },
     },
-
     {
       $addFields: {
-        totalVideos: {
-          $size: "$videos",
-        },
+        totalVideos: { $size: "$videos" },
       },
     },
-
     {
       $lookup: {
         from: "videos",
@@ -99,23 +101,16 @@ const getPlaylistById = asyncHandler(async (req, res) => {
               ],
             },
           },
-
           {
             $unwind: "$userDetails",
           },
-
           {
-            $sort: { createdAt: sortType === "asc" ? 1 : -1 },
+            $sort: {
+              createdAt: sortType === "asc" ? 1 : -1,
+            },
           },
-
-          {
-            $skip: skip,
-          },
-
-          {
-            $limit: limitNumber,
-          },
-
+          { $skip: skip },
+          { $limit: limitNumber },
           {
             $project: {
               title: 1,
@@ -127,7 +122,6 @@ const getPlaylistById = asyncHandler(async (req, res) => {
         ],
       },
     },
-
     {
       $lookup: {
         from: "users",
@@ -147,9 +141,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
     },
     {
       $addFields: {
-        ownerPlaylist: {
-          $first: "$ownerPlaylist",
-        },
+        ownerPlaylist: { $first: "$ownerPlaylist" },
       },
     },
   ]);
@@ -158,11 +150,13 @@ const getPlaylistById = asyncHandler(async (req, res) => {
     throw new APIError(404, "Playlist not found or is private!");
   }
 
-  return res
-    .status(200)
-    .json(
-      new APIResponse(200, playlist, "User playlist fetched successfully!")
-    );
+  return res.status(200).json(
+    new APIResponse(
+      200,
+      playlist,
+      "User playlist fetched successfully!"
+    )
+  );
 });
 
 const getUserPlaylists = asyncHandler(async (req, res) => {
@@ -189,7 +183,11 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
       {
         $match: {
           owner: new mongoose.Types.ObjectId(userId),
-          isPublic: true, // only public playlists are matched
+          ...(req.user?._id?.toString() !== userId && {
+            isPublic: true,
+            //Viewing your own playlists returns both public and private playlists.
+            //Viewing another user's playlists returns only public playlists.
+          }),
         },
       },
 
@@ -199,6 +197,56 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
         },
       },
 
+      // Get the ID of the first video in the playlist
+      {
+        $addFields: {
+          firstVideoId: {
+            $arrayElemAt: ["$videos", 0],
+          },
+        },
+      },
+
+      // Fetch the first video's thumbnail
+      {
+        $lookup: {
+          from: "videos",
+          let: {
+            firstVideoId: "$firstVideoId",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$_id", "$$firstVideoId"],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                thumbnail: 1,
+              },
+            },
+          ],
+          as: "firstVideoDetails",
+        },
+      },
+
+      // Add the thumbnail directly to the playlist
+      {
+        $addFields: {
+          thumbnail: {
+            $ifNull: [
+              {
+                $arrayElemAt: ["$firstVideoDetails.thumbnail", 0],
+              },
+              null,
+            ],
+          },
+        },
+      },
+
+      // Fetch video details for all videos in the playlist
       {
         $lookup: {
           from: "videos",
@@ -240,11 +288,20 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
         },
       },
 
+      // Count the videos whose details were successfully retrieved
       {
         $addFields: {
           totalVideos: {
             $size: "$videosDetails",
           },
+        },
+      },
+
+      // Remove internal fields used by the aggregation
+      {
+        $project: {
+          firstVideoId: 0,
+          firstVideoDetails: 0,
         },
       },
     ]),
@@ -412,8 +469,11 @@ const toggleVisibility = asyncHandler(async (req, res) => {
     playlist: playlistId,
   });
 
-  if(collaborator){
-    throw new APIError(401, "This playlist have collaborator or pending collaborator, thus it cannot be made private");
+  if (collaborator) {
+    throw new APIError(
+      401,
+      "This playlist have collaborator or pending collaborator, thus it cannot be made private"
+    );
   }
 
   playlist.isPublic = !playlist.isPublic;

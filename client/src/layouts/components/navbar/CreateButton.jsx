@@ -110,8 +110,9 @@ function CreateButton() {
             <span>Tweet</span>
           </button>
 
-          <button
-            className="
+          <Link to="/playlists">
+            <button
+              className="
               flex
               w-full
               items-center
@@ -124,10 +125,11 @@ function CreateButton() {
               transition
               hover:bg-white/5
             "
-          >
-            <ListPlus size={18} className="text-white/70" />
-            <span>Playlist</span>
-          </button>
+            >
+              <ListPlus size={18} className="text-white/70" />
+              <span>Playlist</span>
+            </button>
+          </Link>
         </div>
       )}
     </div>

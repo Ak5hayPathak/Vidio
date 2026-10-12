@@ -1,16 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+
 import {
   MoreVertical,
   Pencil,
   ClockPlus,
   Clock,
   ListPlus,
+  ListMinus,
   HeartOff,
   Trash2,
 } from "lucide-react";
 
-import { addToWatchLater, removeFromWatchLater } from "../../features/video/video.service.js";
+import {
+  addToWatchLater,
+  removeFromWatchLater,
+} from "../../features/video/video.service.js";
+
+import AddToPlaylistDialog from "../../features/playlist/components/AddVideoToPlaylistDialog.jsx";
 
 function VideoCard({
   video,
@@ -29,14 +36,14 @@ function VideoCard({
   const [watchLaterLoading, setWatchLaterLoading] = useState(false);
   const [watchLaterError, setWatchLaterError] = useState("");
 
+  const [playlistDialogOpen, setPlaylistDialogOpen] = useState(false);
+
   const menuRef = useRef(null);
 
-  // Synchronize with the parent when the saved status changes.
   useEffect(() => {
     setSavedInWatchLater(isInWatchLater);
   }, [isInWatchLater]);
 
-  // Close the menu when the user clicks outside it.
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -64,19 +71,20 @@ function VideoCard({
     callback?.(video);
   };
 
-  // Add or remove this video using the Watch Later API.
   const handleToggleWatchLater = async () => {
-    if (watchLaterLoading || !video?.id) return;
+    const videoId = video?.id || video?._id;
+
+    if (watchLaterLoading || !videoId) return;
 
     setWatchLaterLoading(true);
     setWatchLaterError("");
 
     try {
       if (savedInWatchLater) {
-        await removeFromWatchLater(video.id);
+        await removeFromWatchLater(videoId);
         setSavedInWatchLater(false);
       } else {
-        await addToWatchLater(video.id);
+        await addToWatchLater(videoId);
         setSavedInWatchLater(true);
       }
 
@@ -90,6 +98,16 @@ function VideoCard({
       setWatchLaterLoading(false);
     }
   };
+
+  const handleOpenPlaylistDialog = () => {
+    setMenuOpen(false);
+    setWatchLaterError("");
+    setPlaylistDialogOpen(true);
+
+    onAddToPlaylist?.(video);
+  };
+
+  const isPlaylistCard = variant === "playlist";
 
   const isCollectionCard = ["liked", "watchLater", "history"].includes(variant);
 
@@ -183,7 +201,21 @@ function VideoCard({
 
               {menuOpen && (
                 <div className="absolute right-0 top-9 z-50 w-56 overflow-hidden rounded-xl border border-white/10 bg-[#111318] py-1 shadow-xl">
-                  {isCollectionCard ? (
+                  {isPlaylistCard ? (
+                    /* Playlist: only remove from playlist */
+                    <button
+                      type="button"
+                      disabled={removing}
+                      onClick={() => handleAction(onRemove)}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/5 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <ListMinus size={16} />
+                      <span>
+                        {removing ? "Removing..." : "Remove from Playlist"}
+                      </span>
+                    </button>
+                  ) : isCollectionCard ? (
+                    /* Liked Videos, Watch Later, and History */
                     <button
                       type="button"
                       disabled={removing}
@@ -235,7 +267,7 @@ function VideoCard({
                       {/* Add to Playlist */}
                       <button
                         type="button"
-                        onClick={() => handleAction(onAddToPlaylist)}
+                        onClick={handleOpenPlaylistDialog}
                         className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-gray-300 transition hover:bg-white/5 hover:text-white"
                       >
                         <ListPlus size={16} />
@@ -274,6 +306,14 @@ function VideoCard({
           </p>
         </div>
       </div>
+
+      {/* Add to Playlist dialog */}
+      {playlistDialogOpen && (
+        <AddToPlaylistDialog
+          video={video}
+          onClose={() => setPlaylistDialogOpen(false)}
+        />
+      )}
     </article>
   );
 }

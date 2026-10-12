@@ -6,6 +6,8 @@ import {
   Heart,
   Clock,
   Video,
+  ListVideo,
+  Handshake,
 } from "lucide-react";
 
 const youLinks = [
@@ -42,7 +44,6 @@ const videosLinks = [
     label: "Your Videos",
     end: true,
   },
-
   {
     to: "/liked-videos",
     icon: Heart,
@@ -57,4 +58,19 @@ const videosLinks = [
   },
 ];
 
-export { youLinks, videosLinks };
+const playlistsLinks = [
+  {
+    to: "/playlists",
+    icon: ListVideo,
+    label: "Playlists",
+    end: true,
+  },
+  // {
+  //   to: "/collabs",
+  //   icon: Handshake,
+  //   label: "Collabs",
+  //   end: true,
+  // },
+];
+
+export { youLinks, videosLinks, playlistsLinks };
