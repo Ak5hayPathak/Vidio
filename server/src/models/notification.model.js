@@ -42,6 +42,12 @@ const notificationSchema = new Schema(
       required: true,
     },
 
+    videoId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Video",
+      default: null,
+    },
+
     isRead: {
       type: Boolean,
       default: false,

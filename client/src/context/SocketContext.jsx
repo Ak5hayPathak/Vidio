@@ -6,7 +6,7 @@ import api from "../services/api.js";
 
 const SocketContext = createContext(null);
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5173/";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5173";
 
 export function SocketProvider({ children }) {
   const { user, loading } = useAuth();
@@ -89,7 +89,7 @@ export function SocketProvider({ children }) {
     });
 
     newSocket.on("notification", (data) => {
-      console.log("[Socket] Notification received:", data);
+      //console.log("[Socket] Notification received:", data);
     });
 
     newSocket.on("connect_error", (error) => {

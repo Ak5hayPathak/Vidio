@@ -49,7 +49,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
         sender: req.user._id,
         type: "video_like",
         message: `${req.user.username} liked your video`,
-        resource: like._id,
+        resource: video._id,
       });
 
       const io = getSocketIO();
@@ -120,6 +120,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
         type: "comment_like",
         message: `${req.user.username} liked your comment`,
         resource: comment._id,
+        videoId: comment.video,
       });
 
       const io = getSocketIO();

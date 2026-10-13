@@ -5,7 +5,7 @@ import NavbarLogo from "../../../components/logo/NavbarLogo.jsx";
 import MobileMenuButton from "./MobileMenuButton.jsx";
 import Search from "./Search.jsx";
 import CreateButton from "./CreateButton.jsx";
-import NotificationButton from "./NotificationButton.jsx";
+import NotificationButton from "./notifications/components/NotificationButton.jsx";
 import ProfileButton from "./ProfileButton.jsx";
 
 function Navbar({ onMenuClick }) {

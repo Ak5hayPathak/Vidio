@@ -1,66 +1,114 @@
 import mongoose from "mongoose";
+
 import { Notification } from "../models/notification.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { APIError } from "../utils/APIError.js";
 import { APIResponse } from "../utils/APIResponse.js";
+
+const MAX_PAGE_SIZE = 100;
+
+const validatePagination = (query) => {
+  const page = query.page === undefined ? 1 : Number(query.page);
+  const limit = query.limit === undefined ? 10 : Number(query.limit);
+
+  if (!Number.isSafeInteger(page) || page < 1) {
+    throw new APIError(400, "Page must be a positive integer.");
+  }
+
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_PAGE_SIZE) {
+    throw new APIError(
+      400,
+      `Limit must be an integer between 1 and ${MAX_PAGE_SIZE}.`
+    );
+  }
+
+  return { page, limit };
+};
+
+const buildNotificationsPipeline = (recipientId, unreadOnly = false) => {
+  const match = { recipient: recipientId };
+
+  if (unreadOnly) {
+    match.isRead = false;
+  }
+
+  return Notification.aggregate([
+    {
+      $match: match,
+    },
+    {
+      $sort: { createdAt: -1 },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "sender",
+        foreignField: "_id",
+        as: "senderDetails",
+      },
+    },
+    {
+      $unwind: {
+        path: "$senderDetails",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $project: {
+        recipient: 1,
+        type: 1,
+        message: 1,
+        resource: 1,
+        isRead: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        videoId: 1,
+        sender: {
+          $cond: [
+            { $ifNull: ["$senderDetails._id", false] },
+            {
+              _id: "$senderDetails._id",
+              username: "$senderDetails.username",
+              fullName: "$senderDetails.fullName",
+              avatar: "$senderDetails.avatar",
+            },
+            null,
+          ],
+        },
+      },
+    },
+  ]);
+};
 
 const getUserNotifications = asyncHandler(async (req, res) => {
   if (!req.user) {
     throw new APIError(401, "Unauthorized request!");
   }
 
-  const { page = 1, limit = 10 } = req.query;
+  const { page, limit } = validatePagination(req.query);
 
   const notifications = await Notification.aggregatePaginate(
-    Notification.aggregate([
-      {
-        $match: {
-          recipient: req.user._id,
-        },
-      },
+    buildNotificationsPipeline(req.user._id),
+    { page, limit }
+  );
 
-      {
-        $sort: {
-          createdAt: -1,
-        },
-      },
+  return res
+    .status(200)
+    .json(
+      new APIResponse(200, notifications, "Notifications fetched successfully!")
+    );
+});
 
-      {
-        $lookup: {
-          from: "users",
-          localField: "sender",
-          foreignField: "_id",
-          as: "senderDetails",
-        },
-      },
+const getUnreadNotifications = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new APIError(401, "Unauthorized request!");
+  }
 
-      {
-        $unwind: "$senderDetails",
-      },
+  const { page, limit } = validatePagination(req.query);
 
-      {
-        $project: {
-          recipient: 1,
-          type: 1,
-          message: 1,
-          resource: 1,
-          isRead: 1,
-          createdAt: 1,
-          updatedAt: 1,
-
-          sender: {
-            _id: "$senderDetails._id",
-            username: "$senderDetails.username",
-            fullName: "$senderDetails.fullName",
-            avatar: "$senderDetails.avatar",
-          },
-        },
-      },
-    ]),
-    {
-      page: Number(page),
-      limit: Number(limit),
-    }
+  const notifications = await Notification.aggregatePaginate(
+    buildNotificationsPipeline(req.user._id, true),
+    { page, limit }
   );
 
   return res
@@ -69,16 +117,41 @@ const getUserNotifications = asyncHandler(async (req, res) => {
       new APIResponse(
         200,
         notifications,
-        "Notifications fetched successfully!"
+        "Unread notifications fetched successfully!"
+      )
+    );
+});
+
+const getUnreadNotificationCount = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new APIError(401, "Unauthorized request!");
+  }
+
+  const unreadCount = await Notification.countDocuments({
+    recipient: req.user._id,
+    isRead: false,
+  });
+
+  return res
+    .status(200)
+    .json(
+      new APIResponse(
+        200,
+        { unreadCount },
+        "Unread notification count fetched successfully!"
       )
     );
 });
 
 const markNotificationAsRead = asyncHandler(async (req, res) => {
-  const { notificationId } = req.params;
-
   if (!req.user) {
     throw new APIError(401, "Unauthorized request!");
+  }
+
+  const { notificationId } = req.params;
+
+  if (!mongoose.isValidObjectId(notificationId)) {
+    throw new APIError(400, "Invalid notification ID.");
   }
 
   const notification = await Notification.findOneAndUpdate(
@@ -87,12 +160,11 @@ const markNotificationAsRead = asyncHandler(async (req, res) => {
       recipient: req.user._id,
     },
     {
-      $set: {
-        isRead: true,
-      },
+      $set: { isRead: true },
     },
     {
       returnDocument: "after",
+      runValidators: true,
     }
   );
 
@@ -116,16 +188,13 @@ const markAllNotificationsAsRead = asyncHandler(async (req, res) => {
     throw new APIError(401, "Unauthorized request!");
   }
 
-  const notifications = await Notification.updateMany(
+  const result = await Notification.updateMany(
     {
       recipient: req.user._id,
       isRead: false,
     },
-
     {
-      $set: {
-        isRead: true,
-      },
+      $set: { isRead: true },
     }
   );
 
@@ -134,84 +203,16 @@ const markAllNotificationsAsRead = asyncHandler(async (req, res) => {
     .json(
       new APIResponse(
         200,
-        notifications,
+        { modifiedCount: result.modifiedCount },
         "All notifications marked as read successfully!"
       )
     );
 });
 
-const getUnreadNotifications = asyncHandler(async (req, res) => {
-  if (!req.user) {
-    throw new APIError(401, "Unauthorized request!");
-  }
-
-  const { page = 1, limit = 10 } = req.query;
-
-  const notifications = await Notification.aggregatePaginate(
-    Notification.aggregate([
-      {
-        $match: {
-          recipient: req.user._id,
-          isRead: false,
-        },
-      },
-
-      {
-        $sort: {
-          createdAt: -1,
-        },
-      },
-
-      {
-        $lookup: {
-          from: "users",
-          localField: "sender",
-          foreignField: "_id",
-          as: "senderDetails",
-        },
-      },
-
-      {
-        $unwind: "$senderDetails",
-      },
-
-      {
-        $project: {
-          recipient: 1,
-          type: 1,
-          message: 1,
-          resource: 1,
-          isRead: 1,
-          createdAt: 1,
-          updatedAt: 1,
-
-          sender: {
-            _id: "$senderDetails._id",
-            username: "$senderDetails.username",
-            fullName: "$senderDetails.fullName",
-            avatar: "$senderDetails.avatar",
-          },
-        },
-      },
-    ]),
-    {
-      page: Number(page),
-      limit: Number(limit),
-    }
-  );
-
-  return res.status(200).json(
-    new APIResponse(
-      200,
-      notifications,
-      "Unread notifications fetched successfully!"
-    )
-  );
-});
-
 export {
   getUserNotifications,
+  getUnreadNotifications,
+  getUnreadNotificationCount,
   markNotificationAsRead,
   markAllNotificationsAsRead,
-  getUnreadNotifications,
 };

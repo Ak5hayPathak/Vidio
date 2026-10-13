@@ -285,6 +285,7 @@ const addComment = asyncHandler(async (req, res) => {
     type: "video_comment",
     message: `${req.user.username} commented on your video`,
     resource: comment._id,
+    videoId: videoExists._id,
   });
 
   const io = getSocketIO();
@@ -449,6 +450,7 @@ const addReply = asyncHandler(async (req, res) => {
       type: "comment_reply",
       message: `${req.user.username} replied to your comment`,
       resource: reply._id,
+      videoId: parentComment.video, // Added video ID
     });
 
     const io = getSocketIO();
