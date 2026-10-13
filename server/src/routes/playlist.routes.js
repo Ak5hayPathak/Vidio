@@ -1,38 +1,70 @@
 import { Router } from "express";
+
 import {
   addVideoToPlaylist,
   createPlaylist,
   deletePlaylist,
   getPlaylistById,
   getUserPlaylists,
+  getMyPlaylists,
   removeVideoFromPlaylist,
   toggleVisibility,
   updatePlaylist,
+  getUserPlaylistsByUsername,
 } from "../controllers/playlist.controller.js";
+
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { isEmailVerified } from "../middlewares/emailVerification.middleware.js";
 import { verifyPlaylistEditor } from "../middlewares/authPlaylist.middleware.js";
 
 const router = Router();
 
-router.use(verifyJWT); // Apply verifyJWT middleware to all routes in this file
+// Create a playlist.
+router.post("/", verifyJWT, isEmailVerified, createPlaylist);
 
-router.route("/").post(isEmailVerified, createPlaylist);
+// Fetch the authenticated user's playlists.
+router.get("/user/me", verifyJWT, isEmailVerified, getMyPlaylists);
 
+// Fetch playlists by username.
+// Public access; the controller must enforce playlist visibility.
+router.get("/user/username/:username", getUserPlaylistsByUsername);
+
+// Fetch playlists belonging to a specific user.
+// Public access; the controller must enforce playlist visibility.
+router.get("/user/:userId", getUserPlaylists);
+
+// Add a video to a playlist.
+router.patch(
+  "/add/:videoId/:playlistId",
+  verifyJWT,
+  isEmailVerified,
+  verifyPlaylistEditor,
+  addVideoToPlaylist
+);
+
+// Remove a video from a playlist.
+router.patch(
+  "/remove/:videoId/:playlistId",
+  verifyJWT,
+  isEmailVerified,
+  verifyPlaylistEditor,
+  removeVideoFromPlaylist
+);
+
+// Change playlist visibility.
+router.patch(
+  "/:playlistId/visibility",
+  verifyJWT,
+  isEmailVerified,
+  verifyPlaylistEditor,
+  toggleVisibility
+);
+
+// Fetch, update, or delete a playlist by ID.
 router
   .route("/:playlistId")
-  .get(getPlaylistById)
-  .patch(isEmailVerified, verifyPlaylistEditor, updatePlaylist)
-  .delete(isEmailVerified, deletePlaylist);
-
-router
-  .route("/add/:videoId/:playlistId")
-  .patch(isEmailVerified, verifyPlaylistEditor, addVideoToPlaylist);
-router
-  .route("/remove/:videoId/:playlistId")
-  .patch(isEmailVerified, verifyPlaylistEditor, removeVideoFromPlaylist);
-
-router.route("/user/:userId").get(getUserPlaylists);
-router.route("/:playlistId/visibility").patch(isEmailVerified, toggleVisibility);
+  .get(verifyJWT, getPlaylistById)
+  .patch(verifyJWT, isEmailVerified, verifyPlaylistEditor, updatePlaylist)
+  .delete(verifyJWT, isEmailVerified, verifyPlaylistEditor, deletePlaylist);
 
 export default router;

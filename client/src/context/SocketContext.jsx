@@ -1,10 +1,4 @@
-
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
 import { useAuth } from "./AuthContext.jsx";
@@ -12,9 +6,7 @@ import api from "../services/api.js";
 
 const SocketContext = createContext(null);
 
-const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL ||
-  "http://localhost:5173/";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5173/";
 
 export function SocketProvider({ children }) {
   const { user, loading } = useAuth();
@@ -78,10 +70,7 @@ export function SocketProvider({ children }) {
 
     newSocket.on("connect", () => {
       console.log("[Socket] Connected:", newSocket.id);
-      console.log(
-        "[Socket] Transport:",
-        newSocket.io.engine.transport.name,
-      );
+      console.log("[Socket] Transport:", newSocket.io.engine.transport.name);
 
       tokenFetchFailed = false;
 
@@ -139,7 +128,7 @@ export function SocketProvider({ children }) {
       newSocket.disconnect();
 
       setSocket((currentSocket) =>
-        currentSocket === newSocket ? null : currentSocket
+        currentSocket === newSocket ? null : currentSocket,
       );
     };
   }, [user, loading]);

@@ -1,22 +1,22 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-
 import { useAuth } from "../../../context/AuthContext.jsx";
-
-import ChannelLoading from "../components/ChannelLoading.jsx";
-import ChannelTabs from "../components/ChannelTabs.jsx";
-import ChannelHeader from "../components/ChannelHeader.jsx";
-import ChannelVideos from "../components/ChannelVideos.jsx";
-import ChannelAbout from "../components/ChannelAbout.jsx";
-import ChannelSubscribeButton from "../components/ChannelSubscribeButton.jsx";
 
 import {
   getUserChannel,
   getUserChannelVideos,
+  getUserChannelPlaylists,
   toggleSubscription,
 } from "../channel.service.js";
 
-import { formatChannel, formatCount } from "../channel.utils.js";
+import ChannelLoading from "../components/ChannelLoading.jsx";
+import ChannelHeader from "../components/ChannelHeader.jsx";
+import ChannelTabs from "../components/ChannelTabs.jsx";
+import ChannelVideos from "../components/ChannelVideos.jsx";
+import ChannelPlaylists from "../components/ChannelPlaylists.jsx";
+import ChannelAbout from "../components/ChannelAbout.jsx";
+
+import { formatCount } from "../channel.utils.js";
 
 function UserChannel() {
   const { username } = useParams();
@@ -24,53 +24,94 @@ function UserChannel() {
 
   const [channelData, setChannelData] = useState(null);
   const [videos, setVideos] = useState([]);
-
+  const [playlists, setPlaylists] = useState([]);
   const [stats, setStats] = useState({
     subscribers: 0,
     totalVideos: 0,
+    totalViews: 0,
+    totalLikes: 0,
   });
 
-  const [subscribed, setSubscribed] = useState(false);
-
   const [loading, setLoading] = useState(true);
-  const [subscribeLoading, setSubscribeLoading] = useState(false);
-
   const [error, setError] = useState("");
-
   const [activeTab, setActiveTab] = useState("Videos");
+  const [subscribing, setSubscribing] = useState(false);
+
+  const isOwner = Boolean(
+    user?._id &&
+    channelData?._id &&
+    user._id.toString() === channelData._id.toString(),
+  );
+
+  const channel = useMemo(
+    () => ({
+      ...channelData,
+      name: channelData?.fullName || channelData?.username || "",
+      username: channelData?.username ? `@${channelData.username}` : "",
+      avatar: channelData?.avatar,
+      cover: channelData?.coverImage,
+      about: channelData?.about || "",
+      initial: (channelData?.fullName || channelData?.username || "?")
+        .charAt(0)
+        .toUpperCase(),
+    }),
+    [channelData],
+  );
 
   useEffect(() => {
-    if (authLoading || !username) return;
+    if (authLoading) return;
+
+    if (!username) {
+      setChannelData(null);
+      setVideos([]);
+      setPlaylists([]);
+      setError("Channel not found.");
+      setLoading(false);
+      return;
+    }
 
     const controller = new AbortController();
 
-    const fetchChannelData = async () => {
+    async function fetchChannelData() {
       try {
         setLoading(true);
         setError("");
 
-        const [channelDataResponse, videosData] = await Promise.all([
-          getUserChannel(username, controller.signal),
+        const [channelResponse, videosResponse, playlistsResponse] =
+          await Promise.all([
+            getUserChannel(username, controller.signal),
+            getUserChannelVideos(username, controller.signal),
+            getUserChannelPlaylists(username, controller.signal),
+          ]);
 
-          getUserChannelVideos(username, controller.signal),
-        ]);
+        if (controller.signal.aborted) return;
 
-        setChannelData(channelDataResponse);
-
-        setSubscribed(channelDataResponse?.isSubscribed || false);
+        setChannelData(channelResponse || null);
+        setVideos(
+          Array.isArray(videosResponse)
+            ? videosResponse
+            : videosResponse?.docs || [],
+        );
+        setPlaylists(
+          Array.isArray(playlistsResponse)
+            ? playlistsResponse
+            : playlistsResponse?.docs || [],
+        );
 
         setStats({
-          subscribers: channelDataResponse?.subscribersCount || 0,
-
-          totalVideos: videosData?.totalDocs || 0,
+          subscribers: channelResponse?.subscribersCount ?? 0,
+          totalVideos: channelResponse?.videosCount ?? 0,
+          totalViews: channelResponse?.totalViews ?? 0,
+          totalLikes: channelResponse?.totalLikes ?? 0,
         });
-
-        setVideos(videosData?.docs || []);
       } catch (err) {
         if (controller.signal.aborted) return;
 
-        console.error("Failed to fetch channel data:", err);
+        console.error("Failed to fetch user channel:", err);
 
+        setChannelData(null);
+        setVideos([]);
+        setPlaylists([]);
         setError(
           err.response?.data?.message || "Unable to load channel information.",
         );
@@ -79,51 +120,49 @@ function UserChannel() {
           setLoading(false);
         }
       }
-    };
+    }
 
     fetchChannelData();
 
     return () => controller.abort();
   }, [username, authLoading]);
 
-  const handleSubscribe = useCallback(async () => {
-    if (!user || !channelData?._id || subscribeLoading) {
-      return;
-    }
+  const handleTabChange = useCallback((tab) => {
+    setActiveTab(tab);
+  }, []);
 
-    if (user._id === channelData._id) {
-      return;
-    }
+  const handleSubscribe = useCallback(async () => {
+    if (!user || !channelData?._id || isOwner || subscribing) return;
 
     try {
-      setSubscribeLoading(true);
-      setError("");
+      setSubscribing(true);
 
-      const data = await toggleSubscription(channelData._id);
+      const result = await toggleSubscription(channelData._id);
 
-      const isNowSubscribed = data?.isSubscribed ?? !subscribed;
+      // Adjust this field if your API uses a different response shape.
+      const subscribed = result?.isSubscribed ?? result?.subscribed;
 
-      setSubscribed(isNowSubscribed);
+      if (typeof subscribed === "boolean") {
+        setChannelData((previous) =>
+          previous ? { ...previous, isSubscribed: subscribed } : previous,
+        );
 
-      setStats((current) => ({
-        ...current,
-        subscribers: Math.max(
-          0,
-          current.subscribers + (isNowSubscribed ? 1 : -1),
-        ),
-      }));
+        setStats((previous) => ({
+          ...previous,
+          subscribers: Math.max(
+            0,
+            previous.subscribers + (subscribed ? 1 : -1),
+          ),
+        }));
+      }
     } catch (err) {
       console.error("Failed to toggle subscription:", err);
 
       setError(err.response?.data?.message || "Unable to update subscription.");
     } finally {
-      setSubscribeLoading(false);
+      setSubscribing(false);
     }
-  }, [user, channelData, subscribeLoading, subscribed]);
-
-  const handleTabChange = useCallback((tab) => {
-    setActiveTab(tab);
-  }, []);
+  }, [user, channelData, isOwner, subscribing]);
 
   if (authLoading || loading) {
     return <ChannelLoading />;
@@ -131,68 +170,41 @@ function UserChannel() {
 
   if (!channelData) {
     return (
-      <div className="min-h-screen bg-[#08090b] text-white">
-        <main className="flex min-h-[70vh] items-center justify-center px-6">
-          <div className="text-center">
-            <h1 className="text-xl font-semibold">Channel not found</h1>
-
-            <p className="mt-2 text-sm text-gray-500">
-              {error || "Unable to find this channel."}
-            </p>
-          </div>
-        </main>
+      <div className="min-h-screen bg-[#08090b] px-6 py-12 text-white">
+        <p role="alert" className="text-sm text-red-400">
+          {error || "Channel not found."}
+        </p>
       </div>
     );
   }
 
-  const channel = formatChannel(channelData);
-
-  const isOwner = user?._id === channelData._id;
-
   return (
     <div className="min-h-screen bg-[#08090b] text-white">
       <main className="min-w-0 flex-1 px-6 py-8 lg:px-10">
-        {/* Channel Header */}
         <ChannelHeader
           channel={channel}
           stats={stats}
           formatCount={formatCount}
           isOwner={isOwner}
-          actions={
-            !isOwner && (
-              <ChannelSubscribeButton
-                subscribed={subscribed}
-                loading={subscribeLoading}
-                onSubscribe={handleSubscribe}
-              />
-            )
-          }
+          isSubscribed={Boolean(channelData.isSubscribed)}
+          onSubscribe={handleSubscribe}
+          subscribing={subscribing}
         />
 
-        {/* Tabs */}
         <ChannelTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
-        {/* Error */}
         {error && (
           <div
             role="alert"
             className="
-              mt-8
-              rounded-xl
-              border
-              border-red-500/20
-              bg-red-500/10
-              px-4
-              py-3
-              text-sm
-              text-red-400
+              mt-8 rounded-xl border border-red-500/20
+              bg-red-500/10 px-4 py-3 text-sm text-red-400
             "
           >
             {error}
           </div>
         )}
 
-        {/* Videos */}
         {activeTab === "Videos" && (
           <ChannelVideos
             videos={videos}
@@ -202,23 +214,22 @@ function UserChannel() {
           />
         )}
 
-        {/* Tweets */}
         {activeTab === "Tweets" && (
           <section className="mt-8 text-sm text-gray-500">
             Tweets coming soon.
           </section>
         )}
 
-        {/* Playlists */}
         {activeTab === "Playlists" && (
-          <section className="mt-8 text-sm text-gray-500">
-            Playlists coming soon.
-          </section>
+          <ChannelPlaylists
+            playlists={playlists}
+            channel={channel}
+            isOwner={isOwner}
+          />
         )}
 
-        {/* About */}
         {activeTab === "About" && (
-          <ChannelAbout about={channel.about} isOwner={isOwner} />
+          <ChannelAbout about={channelData.about || ""} isOwner={isOwner} />
         )}
       </main>
     </div>

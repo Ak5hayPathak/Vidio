@@ -53,6 +53,23 @@ async function toggleSubscription(channelId) {
   return response.data.data;
 }
 
+async function getChannelPlaylists(signal) {
+  const response = await api.get("/playlist/user/me", { signal });
+
+  const data = response.data.data;
+  return Array.isArray(data) ? data : data?.docs || [];
+}
+
+async function getUserChannelPlaylists(username, signal) {
+  const response = await api.get(
+    `/playlist/user/username/${encodeURIComponent(username)}`,
+    { signal },
+  );
+
+  const data = response.data.data;
+  return Array.isArray(data) ? data : data?.docs || [];
+}
+
 export {
   getChannelStats,
   getChannelVideos,
@@ -61,4 +78,6 @@ export {
   getUserChannelVideos,
   toggleSubscription,
   getUserChannel,
+  getUserChannelPlaylists,
+  getChannelPlaylists,
 };

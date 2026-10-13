@@ -65,9 +65,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
         $or: [
           { isPublic: true },
           {
-            owner: new mongoose.Types.ObjectId(
-              req.user._id
-            ),
+            owner: new mongoose.Types.ObjectId(req.user._id),
           },
         ],
       },
@@ -150,13 +148,11 @@ const getPlaylistById = asyncHandler(async (req, res) => {
     throw new APIError(404, "Playlist not found or is private!");
   }
 
-  return res.status(200).json(
-    new APIResponse(
-      200,
-      playlist,
-      "User playlist fetched successfully!"
-    )
-  );
+  return res
+    .status(200)
+    .json(
+      new APIResponse(200, playlist, "User playlist fetched successfully!")
+    );
 });
 
 const getUserPlaylists = asyncHandler(async (req, res) => {
@@ -318,6 +314,49 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new APIResponse(200, playlists, "Playlists fetched successfully!"));
+});
+
+const getUserPlaylistsByUsername = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  const channelOwner = await User.findOne({
+    username: username.toLowerCase(),
+  }).select("_id username");
+
+  if (!channelOwner) {
+    throw new APIError(404, "Channel not found.");
+  }
+
+  const isOwner = req.user?._id?.toString() === channelOwner._id.toString();
+
+  const filter = {
+    owner: channelOwner._id,
+  };
+
+  // Visitors can only access public playlists.
+  if (!isOwner) {
+    filter.isPublic = true;
+  }
+
+  const playlists = await Playlist.find(filter).sort({ createdAt: -1 }).lean();
+
+  return res
+    .status(200)
+    .json(
+      new APIResponse(200, playlists, "Channel playlists fetched successfully.")
+    );
+});
+
+const getMyPlaylists = asyncHandler(async (req, res) => {
+  const playlists = await Playlist.find({
+    owner: req.user._id,
+  }).sort({ createdAt: -1 });
+
+  return res
+    .status(200)
+    .json(
+      new APIResponse(200, playlists, "User playlists fetched successfully.")
+    );
 });
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
@@ -490,9 +529,11 @@ export {
   createPlaylist,
   getPlaylistById,
   getUserPlaylists,
+  getMyPlaylists,
   addVideoToPlaylist,
   removeVideoFromPlaylist,
   deletePlaylist,
   updatePlaylist,
   toggleVisibility,
+  getUserPlaylistsByUsername,
 };

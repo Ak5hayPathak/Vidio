@@ -4,6 +4,7 @@ import { useAuth } from "../../../context/AuthContext.jsx";
 import {
   getChannelStats,
   getChannelVideos,
+  getChannelPlaylists,
 } from "../channel.service.js";
 
 import ChannelLoading from "../components/ChannelLoading.jsx";
@@ -11,9 +12,10 @@ import ChannelLoggedOut from "../components/ChannelLoggedOut.jsx";
 import ChannelHeader from "../components/ChannelHeader.jsx";
 import ChannelTabs from "../components/ChannelTabs.jsx";
 import ChannelVideos from "../components/ChannelVideos.jsx";
+import ChannelPlaylists from "../components/ChannelPlaylists.jsx";
 import ChannelAbout from "../components/ChannelAbout.jsx";
 
-import { formatCount, formatChannel } from "../channel.utils.js";
+import { formatCount } from "../channel.utils.js";
 
 function Channel() {
   const { user, loading: authLoading } = useAuth();
@@ -26,6 +28,7 @@ function Channel() {
   });
 
   const [videos, setVideos] = useState([]);
+  const [playlists, setPlaylists] = useState([]);
   const [about, setAbout] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -46,39 +49,51 @@ function Channel() {
   );
 
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading) return;
+
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     setAbout(user.about || "");
 
     const controller = new AbortController();
 
-    const fetchChannelData = async () => {
+    async function fetchChannelData() {
       try {
         setLoading(true);
         setError("");
 
-        const [stats, videos] = await Promise.all([
+        const [statsData, videosData, playlistsData] = await Promise.all([
           getChannelStats(controller.signal),
           getChannelVideos(controller.signal),
+          getChannelPlaylists(controller.signal),
         ]);
 
-        setStats(stats);
-        setVideos(videos);
+        if (controller.signal.aborted) return;
+
+        setStats(statsData || {});
+        setVideos(Array.isArray(videosData) ? videosData : []);
+        setPlaylists(
+          Array.isArray(playlistsData)
+            ? playlistsData
+            : playlistsData?.docs || [],
+        );
       } catch (err) {
         if (controller.signal.aborted) return;
 
         console.error("Failed to fetch channel data:", err);
 
         setError(
-          err.response?.data?.message ||
-            "Unable to load channel information.",
+          err.response?.data?.message || "Unable to load channel information.",
         );
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
         }
       }
-    };
+    }
 
     fetchChannelData();
 
@@ -111,24 +126,14 @@ function Channel() {
           isOwner={true}
         />
 
-        <ChannelTabs
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-        />
+        <ChannelTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
         {error && (
           <div
             role="alert"
             className="
-              mt-8
-              rounded-xl
-              border
-              border-red-500/20
-              bg-red-500/10
-              px-4
-              py-3
-              text-sm
-              text-red-400
+              mt-8 rounded-xl border border-red-500/20
+              bg-red-500/10 px-4 py-3 text-sm text-red-400
             "
           >
             {error}
@@ -151,9 +156,11 @@ function Channel() {
         )}
 
         {activeTab === "Playlists" && (
-          <section className="mt-8 text-sm text-gray-500">
-            Playlists coming soon.
-          </section>
+          <ChannelPlaylists
+            playlists={playlists}
+            channel={channel}
+            isOwner={true}
+          />
         )}
 
         {activeTab === "About" && (
