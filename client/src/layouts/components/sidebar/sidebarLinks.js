@@ -7,7 +7,7 @@ import {
   Clock,
   Video,
   ListVideo,
-  Handshake,
+  Mail,
 } from "lucide-react";
 
 const youLinks = [
@@ -65,12 +65,12 @@ const playlistsLinks = [
     label: "Playlists",
     end: true,
   },
-  // {
-  //   to: "/collabs",
-  //   icon: Handshake,
-  //   label: "Collabs",
-  //   end: true,
-  // },
+  {
+    to: "/playlist-invitations",
+    icon: Mail,
+    label: "Playlist Invitations",
+    end: true,
+  },
 ];
 
 export { youLinks, videosLinks, playlistsLinks };

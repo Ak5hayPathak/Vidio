@@ -4,10 +4,13 @@ import { ListVideo, Plus } from "lucide-react";
 import PlaylistCard from "../../playlist/components/PlaylistCard.jsx";
 
 function ChannelPlaylists({ playlists = [], channel, isOwner = false }) {
-  // Non-owners should only see public playlists.
+  // Owners can see all playlists returned by the API.
+  // Visitors can see only public playlists.
   const visiblePlaylists = isOwner
     ? playlists
     : playlists.filter((playlist) => playlist.isPublic !== false);
+
+  const hasPlaylists = visiblePlaylists.length > 0;
 
   return (
     <section className="mt-8">
@@ -18,8 +21,8 @@ function ChannelPlaylists({ playlists = [], channel, isOwner = false }) {
 
           <p className="mt-1 text-sm text-gray-500">
             {isOwner
-              ? "Manage the playlists on your channel"
-              : `Public playlists by ${channel.name}`}
+              ? "Your playlists, including collaborative playlists"
+              : `Public playlists and collaborations on ${channel.name}'s channel`}
           </p>
         </div>
 
@@ -41,7 +44,7 @@ function ChannelPlaylists({ playlists = [], channel, isOwner = false }) {
       </div>
 
       {/* Playlist grid */}
-      {visiblePlaylists.length > 0 ? (
+      {hasPlaylists ? (
         <div
           className="
             grid grid-cols-1 gap-x-5 gap-y-8
@@ -67,8 +70,8 @@ function ChannelPlaylists({ playlists = [], channel, isOwner = false }) {
 
           <p className="mt-2 max-w-sm text-sm leading-6 text-gray-400">
             {isOwner
-              ? "Create a playlist to organize your favorite videos."
-              : `${channel.name} hasn't published any public playlists yet.`}
+              ? "Create a playlist or collaborate on one to organize videos."
+              : `${channel.name} hasn't published any public playlists or joined any public playlist collaborations yet.`}
           </p>
 
           {isOwner && (

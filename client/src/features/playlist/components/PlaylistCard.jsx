@@ -8,6 +8,7 @@ import {
   Play,
   Pencil,
   Trash2,
+  UsersRound,
 } from "lucide-react";
 
 import PlaylistVisibilityBadge from "./PlaylistVisibilityBadge";
@@ -36,6 +37,13 @@ function PlaylistCard({ playlist, onEditClick, onDeleteClick }) {
       : null);
 
   const isPublic = playlist.isPublic ?? true;
+  const isCollaborative = Boolean(playlist.isCollaborative);
+
+  // Preserve existing behavior for components whose API doesn't return isOwner.
+  const canManage =
+    playlist.isOwner === undefined
+      ? !isCollaborative
+      : playlist.isOwner && !isCollaborative;
   const description = playlist.description?.trim();
 
   const updateMenuPosition = () => {
@@ -166,35 +174,44 @@ function PlaylistCard({ playlist, onEditClick, onDeleteClick }) {
             </p>
           )}
 
-          <div className="mt-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <PlaylistVisibilityBadge isPublic={isPublic} />
+
+            {isCollaborative && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-300">
+                <UsersRound size={13} />
+                Collaborative
+              </span>
+            )}
           </div>
         </Link>
 
         {/* Three-dot menu trigger */}
-        <button
-          ref={buttonRef}
-          type="button"
-          onClick={() => {
-            if (isMenuOpen) {
-              setIsMenuOpen(false);
-            } else {
-              updateMenuPosition();
-              setIsMenuOpen(true);
-            }
-          }}
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
-            isMenuOpen
-              ? "bg-white/10 text-white"
-              : "text-gray-400 hover:bg-white/10 hover:text-white"
-          }`}
-          aria-label={`Actions for ${playlist.name || "playlist"}`}
-          aria-haspopup="menu"
-          aria-expanded={isMenuOpen}
-          title="Playlist options"
-        >
-          <EllipsisVertical size={19} />
-        </button>
+        {canManage && (
+          <button
+            ref={buttonRef}
+            type="button"
+            onClick={() => {
+              if (isMenuOpen) {
+                setIsMenuOpen(false);
+              } else {
+                updateMenuPosition();
+                setIsMenuOpen(true);
+              }
+            }}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+              isMenuOpen
+                ? "bg-white/10 text-white"
+                : "text-gray-400 hover:bg-white/10 hover:text-white"
+            }`}
+            aria-label={`Actions for ${playlist.name || "playlist"}`}
+            aria-haspopup="menu"
+            aria-expanded={isMenuOpen}
+            title="Playlist options"
+          >
+            <EllipsisVertical size={19} />
+          </button>
+        )}
       </div>
 
       {/* Portal renders the menu outside the card's overflow-hidden container */}

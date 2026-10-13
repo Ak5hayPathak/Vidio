@@ -24,7 +24,7 @@ function PlaylistHeader({
         All playlists
       </Link>
 
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111214]">
+      <div className="relative rounded-2xl border border-white/10 bg-[#111214]">
         <div className="absolute inset-0 bg-gradient-to-br from-red-600/10 via-transparent to-transparent" />
 
         <div className="relative flex flex-col gap-5 p-5 sm:p-7 md:flex-row md:items-center">

@@ -174,15 +174,40 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
 
   const { page = 1, limit = 10 } = req.query;
 
+  const isProfileOwner = req.user?._id?.toString() === userId;
+
+  const acceptedCollaborations = await PlaylistCollaborator.find({
+    user: new mongoose.Types.ObjectId(userId),
+    status: "accepted",
+  })
+    .select("playlist")
+    .lean();
+
+  const collaborativePlaylistIds = acceptedCollaborations.map(
+    (collaboration) => collaboration.playlist
+  );
+
+  const currentUserId =
+    req.user?._id && mongoose.isValidObjectId(req.user._id)
+      ? new mongoose.Types.ObjectId(req.user._id)
+      : null;
+
   const playlists = await Playlist.aggregatePaginate(
     Playlist.aggregate([
       {
         $match: {
-          owner: new mongoose.Types.ObjectId(userId),
-          ...(req.user?._id?.toString() !== userId && {
+          $or: [
+            {
+              owner: new mongoose.Types.ObjectId(userId),
+            },
+            {
+              _id: { $in: collaborativePlaylistIds },
+            },
+          ],
+
+          // Other users can see only public playlists.
+          ...(!isProfileOwner && {
             isPublic: true,
-            //Viewing your own playlists returns both public and private playlists.
-            //Viewing another user's playlists returns only public playlists.
           }),
         },
       },
@@ -290,6 +315,14 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
           totalVideos: {
             $size: "$videosDetails",
           },
+
+          isCollaborative: {
+            $in: ["$_id", collaborativePlaylistIds],
+          },
+
+          isOwner: {
+            $eq: ["$owner", { $literal: currentUserId }],
+          },
         },
       },
 
@@ -327,35 +360,140 @@ const getUserPlaylistsByUsername = asyncHandler(async (req, res) => {
     throw new APIError(404, "Channel not found.");
   }
 
-  const isOwner = req.user?._id?.toString() === channelOwner._id.toString();
+  const channelOwnerId = channelOwner._id;
 
-  const filter = {
-    owner: channelOwner._id,
-  };
+  const isProfileOwner =
+    req.user?._id?.toString() === channelOwnerId.toString();
 
-  // Visitors can only access public playlists.
-  if (!isOwner) {
-    filter.isPublic = true;
+  // 1. Find playlists owned by this channel.
+  const ownedPlaylists = await Playlist.find({
+    owner: channelOwnerId,
+    ...(!isProfileOwner && { isPublic: true }),
+  }).lean();
+
+  // 2. Find accepted collaborations for this channel owner.
+  const acceptedCollaborations = await PlaylistCollaborator.find({
+    user: channelOwnerId,
+    status: "accepted",
+  })
+    .select("playlist")
+    .lean();
+
+  console.log("Channel owner:", channelOwner.username);
+  console.log("Accepted collaborations:", acceptedCollaborations);
+
+  const collaborativePlaylistIds = acceptedCollaborations.map(
+    (collaboration) => collaboration.playlist
+  );
+
+  // 3. Fetch collaborative playlists.
+  const collaborativePlaylists = collaborativePlaylistIds.length
+    ? await Playlist.find({
+        _id: { $in: collaborativePlaylistIds },
+        ...(!isProfileOwner && { isPublic: true }),
+      }).lean()
+    : [];
+
+  // 4. Combine both lists without duplicates.
+  const playlistsById = new Map();
+
+  for (const playlist of ownedPlaylists) {
+    playlistsById.set(playlist._id.toString(), {
+      ...playlist,
+      isOwner: isProfileOwner,
+      isCollaborative: false,
+    });
   }
 
-  const playlists = await Playlist.find(filter).sort({ createdAt: -1 }).lean();
+  for (const playlist of collaborativePlaylists) {
+    const id = playlist._id.toString();
+
+    // If the user owns the playlist, don't mark it as collaborative.
+    const isOwner = playlist.owner.toString() === channelOwnerId.toString();
+
+    playlistsById.set(id, {
+      ...playlist,
+      isOwner,
+      isCollaborative: !isOwner,
+    });
+  }
+
+  const formattedPlaylists = [...playlistsById.values()].sort(
+    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+  );
 
   return res
     .status(200)
     .json(
-      new APIResponse(200, playlists, "Channel playlists fetched successfully.")
+      new APIResponse(
+        200,
+        formattedPlaylists,
+        "Channel playlists fetched successfully."
+      )
     );
 });
 
 const getMyPlaylists = asyncHandler(async (req, res) => {
-  const playlists = await Playlist.find({
-    owner: req.user._id,
-  }).sort({ createdAt: -1 });
+  const userId = req.user._id;
+
+  // Find accepted collaborations for the current user.
+  const acceptedCollaborations = await PlaylistCollaborator.find({
+    user: userId,
+    status: "accepted",
+  })
+    .select("playlist")
+    .lean();
+
+  const collaborativePlaylistIds = acceptedCollaborations.map(
+    (collaboration) => collaboration.playlist
+  );
+
+  // Fetch owned playlists.
+  const ownedPlaylists = await Playlist.find({
+    owner: userId,
+  }).lean();
+
+  // Fetch playlists where the current user is a collaborator.
+  const collaborativePlaylists = collaborativePlaylistIds.length
+    ? await Playlist.find({
+        _id: { $in: collaborativePlaylistIds },
+      }).lean()
+    : [];
+
+  // Combine playlists without duplicates.
+  const playlistsById = new Map();
+
+  for (const playlist of ownedPlaylists) {
+    playlistsById.set(playlist._id.toString(), {
+      ...playlist,
+      isOwner: true,
+      isCollaborative: false,
+    });
+  }
+
+  for (const playlist of collaborativePlaylists) {
+    const id = playlist._id.toString();
+    const isOwner = playlist.owner.toString() === userId.toString();
+
+    playlistsById.set(id, {
+      ...playlist,
+      isOwner,
+      isCollaborative: !isOwner,
+    });
+  }
+
+  const formattedPlaylists = [...playlistsById.values()].sort(
+    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+  );
 
   return res
     .status(200)
     .json(
-      new APIResponse(200, playlists, "User playlists fetched successfully.")
+      new APIResponse(
+        200,
+        formattedPlaylists,
+        "User playlists fetched successfully."
+      )
     );
 });
 

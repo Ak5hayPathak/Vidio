@@ -65,7 +65,7 @@ const sendInvitation = asyncHandler(async (req, res) => {
     sender: req.user._id,
     type: "playlist_invitation",
     message: "You have been invited to collaborate on a playlist",
-    resource: invitation._id,
+    resource: playlistId,
   });
 
   const io = getSocketIO();

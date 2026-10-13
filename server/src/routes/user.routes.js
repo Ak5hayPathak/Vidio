@@ -20,6 +20,7 @@ import {
   changeEmail,
   verifyEmailChange,
   generateSocketToken,
+  searchUsers,
 } from "../controllers/user.controller.js";
 
 import {
@@ -34,9 +35,7 @@ import { isEmailVerified } from "../middlewares/emailVerification.middleware.js"
 
 const router = Router();
 
-
 /* Authentication                                                             */
-
 
 // Register
 router.route("/register").post(
@@ -68,18 +67,13 @@ router.route("/socket-token").get(verifyJWT, generateSocketToken);
 
 /* Email Verification                                                         */
 
-
 // Verify email
 router.route("/verify-email/:token").get(verifyEmail);
 
 // Resend verification email
-router
-  .route("/resend-verification-email")
-  .post(resendVerificationEmail);
-
+router.route("/resend-verification-email").post(resendVerificationEmail);
 
 /* Password Recovery                                                          */
-
 
 // Forgot password
 router.route("/forgot-password").post(forgotPassword);
@@ -87,22 +81,18 @@ router.route("/forgot-password").post(forgotPassword);
 // Reset password
 router.route("/reset-password/:token").post(resetPassword);
 
-
 /* Current User / Account                                                     */
-
 
 // Get currently authenticated user
 router.route("/current-user").get(verifyJWT, getCurrentUser);
 
+// Search User by username
+router.get("/search", verifyJWT, isEmailVerified, searchUsers);
+
 // Change password
 router
   .route("/change-password")
-  .post(
-    verifyJWT,
-    isEmailVerified,
-    validateChangedPassword,
-    changePassword
-  );
+  .post(verifyJWT, isEmailVerified, validateChangedPassword, changePassword);
 
 // Change email
 router.route("/change-email").post(verifyJWT, changeEmail);
@@ -110,9 +100,7 @@ router.route("/change-email").post(verifyJWT, changeEmail);
 // Verify changed email
 router.route("/verify-changed-email/:token").post(verifyEmailChange);
 
-
 /* Profile                                                                     */
-
 
 // Update user details
 router
@@ -142,9 +130,7 @@ router.route("/update-files").patch(
 // Get user's channel/profile
 router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
 
-
 /* Watch History                                                               */
-
 
 // Get watch history
 router.route("/history").get(verifyJWT, getWatchHistory);

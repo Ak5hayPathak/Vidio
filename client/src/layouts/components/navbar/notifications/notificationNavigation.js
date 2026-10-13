@@ -31,7 +31,7 @@ export function getNotificationPath(notification) {
       const playlistId =
         typeof resource === "object" ? resource?._id : resource;
 
-      return playlistId ? `/playlists/${playlistId}` : null;
+      return playlistId ? `/playlist-invitations` : null;
     }
 
     case "tweet_like":

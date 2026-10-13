@@ -582,6 +582,43 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     .json(new APIResponse(200, req.user, "User fetched successfully"));
 });
 
+
+const searchUsers = asyncHandler(async (req, res) => {
+  const query = req.query.q?.trim();
+
+  if (!query || query.length < 2) {
+    throw new APIError(
+      400,
+      "Search query must contain at least 2 characters."
+    );
+  }
+
+  // Escape regex special characters so input is treated as plain text.
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const searchRegex = new RegExp(escapedQuery, "i");
+
+  const parsedLimit = Number.parseInt(req.query.limit, 10);
+  const limit = Number.isNaN(parsedLimit)
+    ? 10
+    : Math.min(Math.max(parsedLimit, 1), 20);
+
+  const users = await User.find({
+    _id: { $ne: req.user._id },
+    $or: [
+      { username: searchRegex },
+      { fullName: searchRegex },
+    ],
+  })
+    .select("_id username fullName avatar")
+    .limit(limit)
+    .lean();
+
+  return res
+    .status(200)
+    .json(new APIResponse(200, users, "Users searched successfully."));
+});
+
+
 const updateAbout = asyncHandler(async (req, res) => {
   const { about } = req.body;
 
@@ -997,6 +1034,7 @@ export {
   resetPassword,
   updateUserDetails,
   getCurrentUser,
+  searchUsers,
   updateFiles,
   getUserChannelProfile,
   getWatchHistory,

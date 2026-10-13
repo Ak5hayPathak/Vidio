@@ -43,6 +43,7 @@ import YourVideos from "./features/video/pages/YourVideos.jsx";
 // Playlist
 import Playlists from "./features/playlist/pages/Playlists.jsx";
 import PlaylistDetails from "./features/playlist/pages/PlaylistDetails.jsx";
+import PlaylistInvitations from "./features/playlist/pages/PlaylistInvitations.jsx";
 
 function App() {
   return (
@@ -108,6 +109,10 @@ function App() {
             <Route
               path="/playlists/:playlistId"
               element={<PlaylistDetails />}
+            />
+            <Route
+              path="/playlist-invitations"
+              element={<PlaylistInvitations />}
             />
           </Route>
         </Route>

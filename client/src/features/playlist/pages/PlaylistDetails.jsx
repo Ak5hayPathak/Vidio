@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Users } from "lucide-react";
 
 import { useAuth } from "../../../context/AuthContext.jsx";
 
@@ -11,10 +12,7 @@ import {
   togglePlaylistVisibility,
 } from "../playlist.service.js";
 
-import {
-  extractPlaylist,
-  normalizeVideo,
-} from "../playlist.utils.js";
+import { extractPlaylist, normalizeVideo } from "../playlist.utils.js";
 
 import PlaylistHeader from "../components/playlistDetails/PlaylistHeader.jsx";
 import PlaylistVideosSection from "../components/playlistDetails/PlaylistVideosSection.jsx";
@@ -24,6 +22,8 @@ import PlaylistError from "../components/playlistDetails/PlaylistError.jsx";
 
 import EditPlaylistDialog from "../components/EditPlaylistDialog.jsx";
 import DeletePlaylistDialog from "../components/DeletePlaylistDialog.jsx";
+import CollaboratorsDialog from "../components/collaborators/CollaboratorsDialog.jsx";
+import CollaboratorsSection from "../components/collaborators/CollaboratorsSection.jsx";
 
 function PlaylistDetails() {
   const { playlistId } = useParams();
@@ -37,6 +37,7 @@ function PlaylistDetails() {
 
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [collaboratorsDialogOpen, setCollaboratorsDialogOpen] = useState(false);
 
   const [removingVideoId, setRemovingVideoId] = useState("");
   const [visibilityLoading, setVisibilityLoading] = useState(false);
@@ -117,8 +118,7 @@ function PlaylistDetails() {
       await fetchPlaylist(true);
     } catch (err) {
       setActionError(
-        err.response?.data?.message ||
-          "Unable to update this playlist.",
+        err.response?.data?.message || "Unable to update this playlist.",
       );
     }
   };
@@ -129,8 +129,7 @@ function PlaylistDetails() {
       navigate("/playlists", { replace: true });
     } catch (err) {
       setActionError(
-        err.response?.data?.message ||
-          "Unable to delete this playlist.",
+        err.response?.data?.message || "Unable to delete this playlist.",
       );
       setConfirmDelete(false);
     }
@@ -150,8 +149,7 @@ function PlaylistDetails() {
       await fetchPlaylist(true);
     } catch (err) {
       setActionError(
-        err.response?.data?.message ||
-          "Unable to change playlist visibility.",
+        err.response?.data?.message || "Unable to change playlist visibility.",
       );
     } finally {
       setVisibilityLoading(false);
@@ -184,10 +182,7 @@ function PlaylistDetails() {
           videosDetails: Array.isArray(previous.videosDetails)
             ? previous.videosDetails.filter(filterVideo)
             : previous.videosDetails,
-          totalVideos: Math.max(
-            0,
-            (previous.totalVideos ?? videos.length) - 1,
-          ),
+          totalVideos: Math.max(0, (previous.totalVideos ?? videos.length) - 1),
         };
       });
 
@@ -219,18 +214,39 @@ function PlaylistDetails() {
   if (!playlist) return null;
 
   return (
-    <section className="mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8">
-      <PlaylistHeader
-        playlist={playlist}
-        videos={videos}
-        totalVideos={totalVideos}
-        owner={owner}
-        isOwner={isOwner}
-        visibilityLoading={visibilityLoading}
-        onEdit={() => setEditing(true)}
-        onDelete={() => setConfirmDelete(true)}
-        onToggleVisibility={handleToggleVisibility}
-      />
+    <section className="relative z-10 mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8">
+      <div className="relative z-20">
+        <PlaylistHeader
+          playlist={playlist}
+          videos={videos}
+          totalVideos={totalVideos}
+          owner={owner}
+          isOwner={isOwner}
+          visibilityLoading={visibilityLoading}
+          onEdit={() => {
+            setActionError("");
+            setEditing(true);
+          }}
+          onDelete={() => {
+            setActionError("");
+            setConfirmDelete(true);
+          }}
+          onToggleVisibility={handleToggleVisibility}
+        />
+      </div>
+
+      {isOwner && playlist.isPublic && (
+        <div className="relative z-10 mt-5">
+          <button
+            type="button"
+            onClick={() => setCollaboratorsDialogOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-gray-200 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+          >
+            <Users size={17} />
+            Invite collaborators
+          </button>
+        </div>
+      )}
 
       <PlaylistFeedback
         actionError={actionError}
@@ -238,6 +254,10 @@ function PlaylistDetails() {
         error={error}
         onRetry={() => fetchPlaylist(true)}
       />
+
+      {playlist.isPublic && (
+        <CollaboratorsSection playlistId={playlist._id} isOwner={isOwner} />
+      )}
 
       <PlaylistVideosSection
         videos={videos}
@@ -262,6 +282,13 @@ function PlaylistDetails() {
           playlist={playlist}
           onClose={() => setConfirmDelete(false)}
           onDelete={handleDeletePlaylist}
+        />
+      )}
+
+      {collaboratorsDialogOpen && (
+        <CollaboratorsDialog
+          playlist={playlist}
+          onClose={() => setCollaboratorsDialogOpen(false)}
         />
       )}
     </section>
