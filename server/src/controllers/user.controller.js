@@ -582,42 +582,58 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     .json(new APIResponse(200, req.user, "User fetched successfully"));
 });
 
-
 const searchUsers = asyncHandler(async (req, res) => {
-  const query = req.query.q?.trim();
+  let { q, page = 1, limit = 10 } = req.query;
 
-  if (!query || query.length < 2) {
-    throw new APIError(
-      400,
-      "Search query must contain at least 2 characters."
-    );
+  if (!q?.trim() || q.trim().length < 2) {
+    throw new APIError(400, "Search query must contain at least 2 characters.");
   }
 
-  // Escape regex special characters so input is treated as plain text.
-  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const searchRegex = new RegExp(escapedQuery, "i");
+  q = q.trim();
 
-  const parsedLimit = Number.parseInt(req.query.limit, 10);
-  const limit = Number.isNaN(parsedLimit)
+  const parsedPage = Number.parseInt(page, 10);
+  const parsedLimit = Number.parseInt(limit, 10);
+
+  page = Number.isNaN(parsedPage) ? 1 : Math.max(parsedPage, 1);
+  limit = Number.isNaN(parsedLimit)
     ? 10
     : Math.min(Math.max(parsedLimit, 1), 20);
 
-  const users = await User.find({
-    _id: { $ne: req.user._id },
-    $or: [
-      { username: searchRegex },
-      { fullName: searchRegex },
-    ],
-  })
-    .select("_id username fullName avatar")
-    .limit(limit)
-    .lean();
+  // Escape regex special characters.
+  const escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const searchRegex = new RegExp(escapedQuery, "i");
+
+  const pipeline = [
+    {
+      $match: {
+        _id: { $ne: req.user._id },
+        $or: [{ username: searchRegex }, { fullName: searchRegex }],
+      },
+    },
+    {
+      $sort: {
+        username: 1,
+        _id: 1,
+      },
+    },
+    {
+      $project: {
+        username: 1,
+        fullName: 1,
+        avatar: 1,
+      },
+    },
+  ];
+
+  const result = await User.aggregatePaginate(User.aggregate(pipeline), {
+    page,
+    limit,
+  });
 
   return res
     .status(200)
-    .json(new APIResponse(200, users, "Users searched successfully."));
+    .json(new APIResponse(200, result, "Users searched successfully."));
 });
-
 
 const updateAbout = asyncHandler(async (req, res) => {
   const { about } = req.body;

@@ -2,22 +2,39 @@ import api from "../../services/api.js";
 
 const BASE_URL = "/playlist-collab";
 
-// Search users by username or full name.
-async function searchUsers(query, limit = 10) {
+// Search users by username or full name with pagination.
+async function searchUsers(query, page = 1, limit = 10) {
   const normalizedQuery = query.trim();
 
   if (normalizedQuery.length < 2) {
-    return [];
+    return {
+      docs: [],
+      page: 1,
+      totalPages: 0,
+      hasNextPage: false,
+      hasPrevPage: false,
+      totalDocs: 0,
+    };
   }
 
   const response = await api.get("/users/search", {
     params: {
       q: normalizedQuery,
+      page,
       limit,
     },
   });
 
-  return response.data?.data ?? [];
+  return (
+    response.data?.data ?? {
+      docs: [],
+      page: 1,
+      totalPages: 0,
+      hasNextPage: false,
+      hasPrevPage: false,
+      totalDocs: 0,
+    }
+  );
 }
 
 // Send an invitation to collaborate on a playlist.

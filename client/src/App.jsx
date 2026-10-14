@@ -44,6 +44,7 @@ import YourVideos from "./features/video/pages/YourVideos.jsx";
 import Playlists from "./features/playlist/pages/Playlists.jsx";
 import PlaylistDetails from "./features/playlist/pages/PlaylistDetails.jsx";
 import PlaylistInvitations from "./features/playlist/pages/PlaylistInvitations.jsx";
+import SearchResults from "./layouts/components/navbar/search/pages/SearchResult.jsx";
 
 function App() {
   return (
@@ -62,6 +63,9 @@ function App() {
           <Route element={<MainLayout />}>
             {/* Home */}
             <Route path="/" element={<Home />} />
+
+            {/* Search */}
+            <Route path="/search" element={<SearchResults />} />
 
             {/* Channel */}
             <Route path="/channel" element={<Channel />} />

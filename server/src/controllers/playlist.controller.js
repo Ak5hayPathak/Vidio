@@ -379,8 +379,8 @@ const getUserPlaylistsByUsername = asyncHandler(async (req, res) => {
     .select("playlist")
     .lean();
 
-  console.log("Channel owner:", channelOwner.username);
-  console.log("Accepted collaborations:", acceptedCollaborations);
+  // console.log("Channel owner:", channelOwner.username);
+  // console.log("Accepted collaborations:", acceptedCollaborations);
 
   const collaborativePlaylistIds = acceptedCollaborations.map(
     (collaboration) => collaboration.playlist
@@ -495,6 +495,128 @@ const getMyPlaylists = asyncHandler(async (req, res) => {
         "User playlists fetched successfully."
       )
     );
+});
+
+const searchPlaylists = asyncHandler(async (req, res) => {
+  const query = req.query.q?.trim();
+
+  if (!query || query.length < 2) {
+    throw new APIError(400, "Search query must contain at least 2 characters.");
+  }
+
+  const parsedLimit = Number.parseInt(req.query.limit, 10);
+  const limit = Number.isNaN(parsedLimit)
+    ? 10
+    : Math.min(Math.max(parsedLimit, 1), 20);
+
+  const parsedPage = Number.parseInt(req.query.page, 10);
+  const page = Number.isNaN(parsedPage) ? 1 : Math.max(parsedPage, 1);
+
+  const skip = (page - 1) * limit;
+
+  // Escape special regex characters.
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const searchRegex = new RegExp(escapedQuery, "i");
+
+  // Public playlists are visible to everyone.
+  // Private playlists are visible only to their owners.
+  const visibilityConditions = [{ isPublic: true }];
+
+  if (req.user?._id) {
+    visibilityConditions.push({ owner: req.user._id });
+  }
+
+  const result = await Playlist.aggregate([
+    {
+      $match: {
+        $and: [
+          {
+            $or: [{ name: searchRegex }, { description: searchRegex }],
+          },
+          {
+            $or: visibilityConditions,
+          },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "ownerDetails",
+        pipeline: [
+          {
+            $project: {
+              username: 1,
+              fullName: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: {
+        path: "$ownerDetails",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        videoCount: {
+          $size: { $ifNull: ["$videos", []] },
+        },
+      },
+    },
+    {
+      $sort: {
+        name: 1,
+        _id: 1,
+      },
+    },
+    {
+      $facet: {
+        docs: [
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $project: {
+              name: 1,
+              description: 1,
+              owner: 1,
+              ownerDetails: 1,
+              isPublic: 1,
+              videos: 1,
+              videoCount: 1,
+              createdAt: 1,
+            },
+          },
+        ],
+        metadata: [{ $count: "totalDocs" }],
+      },
+    },
+  ]);
+
+  const docs = result[0]?.docs ?? [];
+  const totalDocs = result[0]?.metadata[0]?.totalDocs ?? 0;
+  const totalPages = Math.ceil(totalDocs / limit);
+
+  return res.status(200).json(
+    new APIResponse(
+      200,
+      {
+        docs,
+        totalDocs,
+        totalPages,
+        page,
+        limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1 && totalPages > 0,
+      },
+      "Playlists searched successfully."
+    )
+  );
 });
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
@@ -668,6 +790,7 @@ export {
   getPlaylistById,
   getUserPlaylists,
   getMyPlaylists,
+  searchPlaylists,
   addVideoToPlaylist,
   removeVideoFromPlaylist,
   deletePlaylist,

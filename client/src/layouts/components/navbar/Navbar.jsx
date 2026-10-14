@@ -10,11 +10,12 @@ import ProfileButton from "./ProfileButton.jsx";
 
 function Navbar({ onMenuClick }) {
   const [searchFocused, setSearchFocused] = useState(false);
+  const [query, setQuery] = useState("");
   const searchInputRef = useRef(null);
   const { user } = useAuth();
 
-  const handleSearchFocus = () => {
-    setSearchFocused(true);
+  const handleSearchFocus = (focused = true) => {
+    setSearchFocused(focused);
   };
 
   const handleBack = () => {
@@ -28,35 +29,29 @@ function Navbar({ onMenuClick }) {
           searchFocused={searchFocused}
           searchInputRef={searchInputRef}
           handleBack={handleBack}
+          query={query}
+          setQuery={setQuery}
         />
-        {/* Normal Navbar, visible on desktop */}
+
         <div
           className={`
-            w-full
-            items-center
-            gap-2
+            w-full items-center gap-2
             ${searchFocused ? "hidden" : "flex"}
             lg:flex
           `}
         >
-          {/* Mobile Menu Button */}
           <MobileMenuButton onMenuClick={onMenuClick} />
-
-          {/* Logo */}
           <NavbarLogo />
 
-          {/* Search */}
-          <Search handleSearchFocus={handleSearchFocus} />
+          <Search
+            handleSearchFocus={handleSearchFocus}
+            query={query}
+            setQuery={setQuery}
+          />
 
-          {/* Right Section */}
           <div className="flex shrink-0 items-center gap-1 sm:gap-4">
-            {/* Create */}
             <CreateButton />
-
-            {/* Notification */}
             <NotificationButton />
-
-            {/* Profile */}
             <ProfileButton user={user} />
           </div>
         </div>

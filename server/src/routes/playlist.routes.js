@@ -11,6 +11,7 @@ import {
   toggleVisibility,
   updatePlaylist,
   getUserPlaylistsByUsername,
+  searchPlaylists,
 } from "../controllers/playlist.controller.js";
 
 import { verifyJWT } from "../middlewares/auth.middleware.js";
@@ -41,6 +42,8 @@ router.patch(
   verifyPlaylistEditor,
   addVideoToPlaylist
 );
+
+router.get("/search", verifyJWT, isEmailVerified, searchPlaylists);
 
 // Remove a video from a playlist.
 router.patch(
