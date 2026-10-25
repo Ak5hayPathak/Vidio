@@ -93,9 +93,11 @@ function Home() {
                 xl:grid-cols-4
               "
             >
-              {videos.map((video) => (
-                <VideoCard key={video.id} video={video} />
-              ))}
+              {videos == []
+                ? videos.map((video) => (
+                    <VideoCard key={video.id} video={video} />
+                  ))
+                : "Feed is coming soon."}
             </div>
           </section>
         </main>

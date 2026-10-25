@@ -19,6 +19,7 @@ app.use(express.static("public"));
 app.use(cookieParser());
 
 app.get("/health", (req, res) => {
+  console.log("Health check is called!")
   res.status(200).json({
     status: "OK",
     service: "Vidio API",

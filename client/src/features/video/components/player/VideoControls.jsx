@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   Maximize,
   Minimize,
@@ -52,6 +53,8 @@ function VideoControls({
   openSettings,
   closeSettings,
 }) {
+  const settingsButtonRef = useRef(null);
+
   if (!showControls) {
     return null;
   }
@@ -233,6 +236,7 @@ function VideoControls({
             {/* Settings */}
             <div className="relative">
               <button
+                ref={settingsButtonRef}
                 type="button"
                 onClick={() => {
                   if (settingsOpen) {
@@ -242,6 +246,7 @@ function VideoControls({
                   }
                 }}
                 aria-label="Settings"
+                aria-expanded={settingsOpen}
                 className="
                   flex
                   h-9
@@ -267,6 +272,7 @@ function VideoControls({
                 onClose={closeSettings}
                 onQualityChange={handleQualityChange}
                 onSpeedChange={changePlaybackRate}
+                anchorRef={settingsButtonRef}
               />
             </div>
 
