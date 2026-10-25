@@ -19,7 +19,16 @@ app.use(express.static("public"));
 app.use(cookieParser());
 
 app.get("/health", (req, res) => {
-  console.log("Health check is called!")
+  //console.log("Health check is called!")
+  res.status(200).json({
+    status: "OK",
+    service: "Vidio API",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get("/health/cron", (req, res) => {
+  console.log("/health/cron is called!")
   res.status(200).json({
     status: "OK",
     service: "Vidio API",
