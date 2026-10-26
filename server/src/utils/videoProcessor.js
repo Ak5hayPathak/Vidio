@@ -362,8 +362,10 @@ const generateThumbnail = async (inputPath, outputPath) => {
   }
 };
 
-const processVideo = async (inputPath, onProgress) => {
-  const videoId = crypto.randomUUID();
+const processVideo = async (inputPath, videoId, onProgress) => {
+  if (!videoId) {
+    throw new Error("Video ID is required for processing.");
+  }
 
   try {
     const metadata = await runFFprobe(inputPath);

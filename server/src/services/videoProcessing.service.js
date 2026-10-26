@@ -1,22 +1,56 @@
-import { processVideo } from "../utils/videoProcessor.js";
+import { processVideo, generateThumbnail } from "../utils/videoProcessor.js";
 import {
   uploadDirectoryToB2,
   deleteVideoDirectoryFromB2,
+  getOriginalVideoFromB2,
 } from "./b2.service.js";
 import { uploadOnCloudinary } from "./cloudinary.service.js";
-import { generateThumbnail } from "../utils/videoProcessor.js";
 import { deleteLocalHLS } from "../utils/fileCleanup.js";
 import { APIError } from "../utils/APIError.js";
-import fs from "fs/promises";
-import path from "path";
+import fs from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import path from "node:path";
+import { pipeline } from "node:stream/promises";
 
-const processAndUploadVideo = async (inputPath, onProgress, maxRetries = 5) => {
-  let videoInfo;
+const downloadOriginalVideoFromB2 = async (originalKey, videoId) => {
+  const extension = path.extname(originalKey) || ".mp4";
+
+  const localPath = path.join(
+    "public",
+    "temp",
+    `original-${videoId}${extension}`
+  );
 
   try {
-    // Process the original video
-    videoInfo = await processVideo(inputPath, (progressData) => {
-      // Convert HLS generation progress from 0-100 to 10-70
+    await fs.mkdir(path.dirname(localPath), { recursive: true });
+
+    const response = await getOriginalVideoFromB2(originalKey);
+
+    if (!response?.Body) {
+      throw new Error(`Original video not found in B2: ${originalKey}`);
+    }
+
+    await pipeline(response.Body, createWriteStream(localPath));
+
+    console.log(`Original video downloaded: ${videoId}`);
+
+    return localPath;
+  } catch (error) {
+    await fs.unlink(localPath).catch(() => {});
+
+    console.error("Failed to download original video:", error.message);
+    throw error;
+  }
+};
+
+const processAndUploadVideo = async (
+  inputPath,
+  videoId,
+  onProgress,
+  maxRetries = 5
+) => {
+  try {
+    const videoInfo = await processVideo(inputPath, videoId, (progressData) => {
       const overallProgress = 10 + (progressData.progress * 60) / 100;
 
       onProgress?.({
@@ -25,12 +59,11 @@ const processAndUploadVideo = async (inputPath, onProgress, maxRetries = 5) => {
       });
     });
 
-    const { videoId, outputDirectory, qualities, duration } = videoInfo;
+    const { outputDirectory, qualities, duration } = videoInfo;
 
     let videoFile;
     let lastError;
 
-    // Retry only the upload process
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`Uploading video to B2. Attempt ${attempt}/${maxRetries}`);
@@ -40,7 +73,6 @@ const processAndUploadVideo = async (inputPath, onProgress, maxRetries = 5) => {
           videoId,
           3,
           (progressData) => {
-            // Convert B2 upload progress from 0-100 to 70-98
             const overallProgress = 70 + (progressData.progress * 28) / 100;
 
             onProgress?.({
@@ -50,17 +82,14 @@ const processAndUploadVideo = async (inputPath, onProgress, maxRetries = 5) => {
           }
         );
 
-        // Upload successful
         break;
       } catch (error) {
         lastError = error;
 
         console.error(`Upload attempt ${attempt} failed:`, error.message);
 
-        // Delete partially uploaded files from B2
         try {
           await deleteVideoDirectoryFromB2(videoId);
-
           console.log(`Partial upload deleted for video: ${videoId}`);
         } catch (deleteError) {
           console.error(
@@ -69,7 +98,6 @@ const processAndUploadVideo = async (inputPath, onProgress, maxRetries = 5) => {
           );
         }
 
-        // Stop retrying if we've reached max attempts
         if (attempt === maxRetries) {
           throw lastError;
         }
@@ -78,10 +106,12 @@ const processAndUploadVideo = async (inputPath, onProgress, maxRetries = 5) => {
       }
     }
 
-    // Local HLS is no longer needed
+    if (!videoFile) {
+      throw lastError ?? new Error("Video upload failed");
+    }
+
     await deleteLocalHLS(outputDirectory);
 
-    // HLS upload is complete
     onProgress?.({
       progress: 98,
       stage: "Finalizing",
@@ -94,9 +124,7 @@ const processAndUploadVideo = async (inputPath, onProgress, maxRetries = 5) => {
       duration,
     };
   } catch (error) {
-    console.error("Video processing and upload failed:");
-    console.error(error.message);
-
+    console.error("Video processing and upload failed:", error.message);
     throw error;
   }
 };
@@ -106,18 +134,24 @@ const processAndUploadThumbnail = async (
   videoFileLocalPath
 ) => {
   try {
-    // Generate thumbnail if user didn't provide one
     if (!thumbnailLocalPath) {
+      if (!videoFileLocalPath) {
+        throw new Error(
+          "Original video path is required to generate a thumbnail"
+        );
+      }
+
       thumbnailLocalPath = path.join(
         "public",
         "temp",
         `thumbnail-${Date.now()}.jpg`
       );
 
+      await fs.mkdir(path.dirname(thumbnailLocalPath), { recursive: true });
+
       await generateThumbnail(videoFileLocalPath, thumbnailLocalPath);
     }
 
-    // Upload thumbnail without deleting the local file
     const thumbnail = await uploadOnCloudinary(thumbnailLocalPath, false);
 
     if (!thumbnail) {
@@ -134,4 +168,10 @@ const processAndUploadThumbnail = async (
   }
 };
 
-export { processAndUploadVideo, processAndUploadThumbnail };
+export {
+  processAndUploadVideo,
+  processAndUploadThumbnail,
+  downloadOriginalVideoFromB2,
+  // Keep the newer name available too, if another module uses it.
+  downloadOriginalVideoFromB2 as downloadOriginalFileFromB2,
+};

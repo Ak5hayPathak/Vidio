@@ -1,4 +1,7 @@
 import mongoose from "mongoose";
+import path from "path";
+import fs from "fs/promises";
+import crypto from "crypto";
 import { Video } from "../models/video.model.js";
 import { VideoView } from "../models/videoView.model.js";
 import { SearchHistory } from "../models/searchHistory.model.js";
@@ -12,6 +15,8 @@ import {
   deleteFromCloudinary,
 } from "../services/cloudinary.service.js";
 import {
+  uploadFileToB2,
+  deleteOriginalVideoFromB2,
   deleteVideoDirectoryFromB2,
   getFileFromB2,
 } from "../services/b2.service.js";
@@ -24,7 +29,8 @@ const publishAVideo = asyncHandler(async (req, res) => {
     throw new APIError(400, "Video title is required!");
   }
 
-  const videoFileLocalPath = req.files?.videoFile?.[0]?.path;
+  const videoFile = req.files?.videoFile?.[0];
+  const videoFileLocalPath = videoFile?.path;
   const thumbnailLocalPath = req.files?.thumbnail?.[0]?.path;
 
   if (!videoFileLocalPath) {
@@ -34,66 +40,107 @@ const publishAVideo = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
 
   if (!userId) {
+    await Promise.allSettled(
+      [videoFileLocalPath, thumbnailLocalPath]
+        .filter(Boolean)
+        .map((filePath) => fs.unlink(filePath))
+    );
+
     throw new APIError(401, "Unauthorized Request!");
   }
 
-  // Create video record before processing
-  const video = await Video.create({
-    title,
-    description,
-    tags,
-    owner: userId,
-    processingStatus: "processing",
-    isPublished: false,
-  });
+  // Generate the UUID once for B2 storage and HLS processing.
+  const videoId = crypto.randomUUID();
+
+  // Keep MongoDB's _id separate from the storage UUID.
+  const mongoVideoId = undefined;
+
+  let video;
+  let originalKey;
+  let job;
 
   try {
-    // Add video-processing job
-    const job = await videoProcessingQueue.add("process-video", {
-      videoId: video._id.toString(),
-      videoFileLocalPath,
+    // 1. Determine the original file extension.
+    const suppliedExtension = path
+      .extname(videoFile.originalname || "")
+      .toLowerCase();
+
+    const extension = /^\.[a-z0-9]{1,10}$/.test(suppliedExtension)
+      ? suppliedExtension
+      : ".mp4";
+
+    // 2. Upload the original video to durable B2 storage.
+    originalKey = `originals/${videoId}/original${extension}`;
+
+    await uploadFileToB2(videoFileLocalPath, originalKey);
+
+    // 3. Create the MongoDB document without changing its schema.
+    video = await Video.create({
+      title: title.trim(),
+      description,
+      tags,
+      owner: userId,
+      processingStatus: "processing",
+      isPublished: false,
+    });
+
+    // 4. Queue both IDs so the worker knows which ID to use.
+    job = await videoProcessingQueue.add("process-video", {
+      videoId, // UUID: B2 and HLS paths.
+      mongoVideoId: video._id.toString(), // MongoDB _id.
+      originalKey,
       thumbnailLocalPath,
       username: req.user.username,
       userId: userId.toString(),
     });
 
-    console.log(`Video processing job added: ${job.id}`);
-
-    return res
-      .status(201)
-      .json(
-        new APIResponse(201, video, "Video uploaded and processing started!")
-      );
+    console.log(
+      `Video processing job added: ${job.id} ` +
+        `(UUID: ${videoId}, MongoDB ID: ${video._id})`
+    );
   } catch (error) {
-    console.error("Failed to add video processing job:", error);
+    console.error("Failed to upload video or queue processing:", error);
 
-    // Remove the video record from MongoDB
-    try {
-      await Video.deleteOne({ _id: video._id });
-    } catch (cleanupError) {
-      console.error("Failed to remove video record:", cleanupError);
+    // These cleanup operations run only if setup failed before
+    // videoProcessingQueue.add() completed successfully.
+    if (video) {
+      await Video.deleteOne({ _id: video._id }).catch((cleanupError) => {
+        console.error("Failed to remove video record:", cleanupError);
+      });
     }
 
-    // Clean up uploaded files
-    const filesToDelete = [videoFileLocalPath, thumbnailLocalPath].filter(
-      Boolean
-    );
+    if (originalKey) {
+      await deleteOriginalVideoFromB2(originalKey).catch((cleanupError) => {
+        console.error("Failed to remove original from B2:", cleanupError);
+      });
+    }
 
     await Promise.allSettled(
-      filesToDelete.map((filePath) => fs.unlink(filePath))
-    ).then((results) => {
-      results.forEach((result) => {
-        if (result.status === "rejected") {
-          console.error("Failed to delete temporary file:", result.reason);
-        }
-      });
-    });
+      [videoFileLocalPath, thumbnailLocalPath]
+        .filter(Boolean)
+        .map((filePath) => fs.unlink(filePath))
+    );
 
     throw new APIError(
       503,
-      "Video processing service is temporarily unavailable. Please try again."
+      "Video upload or processing setup failed. Please try again."
     );
   }
+
+  // 5. The original is now safely stored in B2.
+  // The worker will download it from there, so remove the local copy.
+  await fs.unlink(videoFileLocalPath).catch((error) => {
+    if (error.code !== "ENOENT") {
+      console.error("Failed to remove local original:", error.message);
+    }
+  });
+
+  // Keep thumbnailLocalPath available for the worker.
+  return res
+    .status(201)
+    .json(
+      new APIResponse(201, video, "Video uploaded and processing started!")
+    );
 });
 
 const getAllVideos = asyncHandler(async (req, res) => {

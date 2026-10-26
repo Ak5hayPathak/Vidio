@@ -336,4 +336,83 @@ const getFileFromB2 = async (key) => {
   }
 };
 
-export { uploadDirectoryToB2, deleteVideoDirectoryFromB2, getFileFromB2 };
+// Download the original video from B2 as a readable stream.
+const getOriginalVideoFromB2 = async (key) => {
+  return getFileFromB2(key);
+};
+
+const deleteOriginalVideoFromB2 = async (originalKey) => {
+  if (!originalKey?.startsWith("originals/")) {
+    throw new Error("Invalid original video key.");
+  }
+
+  let keyMarker;
+  let versionIdMarker;
+
+  try {
+    do {
+      const response = await b2Client.send(
+        new ListObjectVersionsCommand({
+          Bucket: BUCKET_NAME,
+          Prefix: originalKey,
+          KeyMarker: keyMarker,
+          VersionIdMarker: versionIdMarker,
+        })
+      );
+
+      // Match the exact key, not other objects sharing its prefix.
+      const objectsToDelete = [
+        ...(response.Versions || []),
+        ...(response.DeleteMarkers || []),
+      ]
+        .filter((object) => object.Key === originalKey)
+        .map((object) => ({
+          Key: object.Key,
+          VersionId: object.VersionId,
+        }));
+
+      for (let i = 0; i < objectsToDelete.length; i += 1000) {
+        const batch = objectsToDelete.slice(i, i + 1000);
+
+        if (batch.length === 0) continue;
+
+        const result = await b2Client.send(
+          new DeleteObjectsCommand({
+            Bucket: BUCKET_NAME,
+            Delete: {
+              Objects: batch,
+              Quiet: false,
+            },
+          })
+        );
+
+        if (result.Errors?.length) {
+          throw new Error(
+            `Failed to delete ${result.Errors.length} original video versions.`
+          );
+        }
+      }
+
+      keyMarker = response.NextKeyMarker;
+      versionIdMarker = response.NextVersionIdMarker;
+    } while (keyMarker || versionIdMarker);
+
+    console.log(`Deleted original video from B2: ${originalKey}`);
+  } catch (error) {
+    console.error(
+      `Failed to delete original video from B2: ${originalKey}`,
+      error.message
+    );
+
+    throw error;
+  }
+};
+
+export {
+  uploadFileToB2,
+  uploadDirectoryToB2,
+  deleteVideoDirectoryFromB2,
+  getFileFromB2,
+  getOriginalVideoFromB2,
+  deleteOriginalVideoFromB2,
+};
