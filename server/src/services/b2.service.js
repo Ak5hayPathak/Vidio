@@ -143,7 +143,7 @@ const getFilesRecursively = (directoryPath) => {
 
     if (item.isDirectory()) {
       files = files.concat(getFilesRecursively(itemPath));
-    } else {
+    } else if (item.isFile()) {
       files.push(itemPath);
     }
   }
@@ -151,10 +151,8 @@ const getFilesRecursively = (directoryPath) => {
   return files;
 };
 
-// Delete all versions and delete markers for a video.
-const deleteVideoDirectoryFromB2 = async (videoId) => {
-  const prefix = `videos/${videoId}/`;
-
+// Delete all versions and delete markers under a B2 prefix.
+const deleteB2Prefix = async (prefix) => {
   let keyMarker;
   let versionIdMarker;
 
@@ -211,9 +209,9 @@ const deleteVideoDirectoryFromB2 = async (videoId) => {
       versionIdMarker = listResponse.NextVersionIdMarker;
     } while (keyMarker || versionIdMarker);
 
-    console.log(`Deleted all existing versions for video: ${videoId}`);
+    console.log(`Deleted all existing versions under prefix: ${prefix}`);
   } catch (error) {
-    console.error(`Failed to delete video versions from B2: ${videoId}`);
+    console.error(`Failed to delete B2 objects under prefix: ${prefix}`);
 
     console.error("Error details:", {
       name: error?.name,
@@ -228,6 +226,274 @@ const deleteVideoDirectoryFromB2 = async (videoId) => {
 
     throw error;
   }
+};
+
+// Delete all versions and delete markers for a video.
+const deleteVideoDirectoryFromB2 = async (videoId) => {
+  if (!videoId) {
+    throw new Error("Video ID is required to delete the video directory.");
+  }
+
+  await deleteB2Prefix(`videos/${videoId}/`);
+
+  console.log(`Deleted all existing versions for video: ${videoId}`);
+};
+
+// Delete all versions and delete markers for a specific quality.
+const deleteQualityDirectoryFromB2 = async (videoId, qualityName) => {
+  if (!videoId || !qualityName) {
+    throw new Error(
+      "Video ID and quality name are required to delete a quality directory."
+    );
+  }
+
+  // Restrict the quality name to a single directory component.
+  if (
+    path.basename(qualityName) !== qualityName ||
+    qualityName.includes("/") ||
+    qualityName.includes("\\")
+  ) {
+    throw new Error("Invalid quality name.");
+  }
+
+  const prefix = `videos/${videoId}/${qualityName}/`;
+
+  await deleteB2Prefix(prefix);
+
+  console.log(
+    `Deleted all existing versions for quality ${qualityName} of video ${videoId}`
+  );
+};
+
+// Upload files from a directory to a specific B2 prefix.
+const uploadDirectoryToPrefix = async (
+  directoryPath,
+  prefix,
+  concurrency = 5,
+  onProgress,
+  { deleteExisting = false } = {}
+) => {
+  if (
+    !fs.existsSync(directoryPath) ||
+    !fs.statSync(directoryPath).isDirectory()
+  ) {
+    throw new Error(`Directory not found: ${directoryPath}`);
+  }
+
+  if (!Number.isInteger(concurrency) || concurrency < 1) {
+    throw new Error("Upload concurrency must be a positive integer.");
+  }
+
+  const files = getFilesRecursively(directoryPath);
+
+  if (files.length === 0) {
+    throw new Error(`No files found in directory: ${directoryPath}`);
+  }
+
+  // Remove existing versions only when explicitly requested.
+  if (deleteExisting) {
+    await deleteB2Prefix(prefix.endsWith("/") ? prefix : `${prefix}/`);
+  }
+
+  // Calculate total size of all files.
+  const totalBytes = files.reduce(
+    (total, filePath) => total + fs.statSync(filePath).size,
+    0
+  );
+
+  if (totalBytes === 0) {
+    throw new Error("Directory contains no uploadable data.");
+  }
+
+  // Track uploaded bytes for each file.
+  const fileProgress = new Map();
+
+  files.forEach((filePath) => {
+    fileProgress.set(filePath, 0);
+  });
+
+  const reportProgress = () => {
+    const totalUploadedBytes = [...fileProgress.values()].reduce(
+      (total, bytes) => total + bytes,
+      0
+    );
+
+    const progress = (totalUploadedBytes / totalBytes) * 100;
+
+    onProgress?.({
+      progress: Math.min(100, progress),
+      stage: "Uploading HLS",
+    });
+  };
+
+  // Upload files in batches to control concurrency.
+  for (let i = 0; i < files.length; i += concurrency) {
+    const batch = files.slice(i, i + concurrency);
+
+    await Promise.all(
+      batch.map(async (filePath) => {
+        const relativePath = path.relative(directoryPath, filePath);
+
+        const key = `${prefix.replace(/\/+$/, "")}/${relativePath
+          .split(path.sep)
+          .join("/")}`;
+
+        await uploadFileToB2(filePath, key, (uploadedBytes) => {
+          fileProgress.set(
+            filePath,
+            Math.min(uploadedBytes, fs.statSync(filePath).size)
+          );
+
+          reportProgress();
+        });
+
+        // Mark the file complete after its upload succeeds.
+        fileProgress.set(filePath, fs.statSync(filePath).size);
+
+        reportProgress();
+
+        console.log(`Uploaded: ${key}`);
+      })
+    );
+  }
+
+  onProgress?.({
+    progress: 100,
+    stage: "HLS upload completed",
+  });
+
+  return files.map((filePath) => {
+    const relativePath = path.relative(directoryPath, filePath);
+
+    return `${prefix.replace(/\/+$/, "")}/${relativePath
+      .split(path.sep)
+      .join("/")}`;
+  });
+};
+
+// Upload a single quality directory to B2.
+const uploadQualityDirectoryToB2 = async (
+  qualityDirectoryPath,
+  videoId,
+  qualityName,
+  concurrency = 5,
+  onProgress
+) => {
+  if (!videoId || !qualityName) {
+    throw new Error(
+      "Video ID and quality name are required to upload a quality directory."
+    );
+  }
+
+  // Restrict the quality name to a single directory component.
+  if (
+    path.basename(qualityName) !== qualityName ||
+    qualityName.includes("/") ||
+    qualityName.includes("\\")
+  ) {
+    throw new Error("Invalid quality name.");
+  }
+
+  const prefix = `videos/${videoId}/${qualityName}`;
+
+  // Remove only this quality's existing versions before uploading it.
+  await deleteQualityDirectoryFromB2(videoId, qualityName);
+
+  const uploadedKeys = await uploadDirectoryToPrefix(
+    qualityDirectoryPath,
+    prefix,
+    concurrency,
+    onProgress
+  );
+
+  // Verify the playlist and every referenced segment were included in the upload.
+  const playlistPath = path.join(qualityDirectoryPath, "playlist.m3u8");
+
+  if (!fs.existsSync(playlistPath)) {
+    throw new Error(`Playlist not found for quality ${qualityName}.`);
+  }
+
+  const playlist = fs.readFileSync(playlistPath, "utf8");
+
+  if (!playlist.includes("#EXT-X-ENDLIST")) {
+    throw new Error(`Playlist for quality ${qualityName} is incomplete.`);
+  }
+
+  const segments = playlist
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.endsWith(".ts"));
+
+  if (segments.length === 0) {
+    throw new Error(`No segments found for quality ${qualityName}.`);
+  }
+
+  for (const segment of segments) {
+    const segmentPath = path.join(qualityDirectoryPath, segment);
+
+    if (
+      !fs.existsSync(segmentPath) ||
+      !fs.statSync(segmentPath).isFile() ||
+      fs.statSync(segmentPath).size === 0
+    ) {
+      throw new Error(
+        `Missing or empty segment for quality ${qualityName}: ${segment}`
+      );
+    }
+
+    const segmentKey = `${prefix}/${segment.split(path.sep).join("/")}`;
+
+    if (!uploadedKeys.includes(segmentKey)) {
+      throw new Error(
+        `Segment was not uploaded for quality ${qualityName}: ${segment}`
+      );
+    }
+  }
+
+  if (!uploadedKeys.includes(`${prefix}/playlist.m3u8`)) {
+    throw new Error(`Playlist was not uploaded for quality ${qualityName}.`);
+  }
+
+  return {
+    quality: qualityName,
+    prefix: `${prefix}/`,
+    playlistKey: `${prefix}/playlist.m3u8`,
+    uploadedKeys,
+  };
+};
+
+// Upload the master playlist separately after all qualities are uploaded.
+const uploadMasterPlaylistToB2 = async (
+  masterPlaylistPath,
+  videoId,
+  onProgress
+) => {
+  if (!videoId) {
+    throw new Error("Video ID is required to upload the master playlist.");
+  }
+
+  if (
+    !fs.existsSync(masterPlaylistPath) ||
+    !fs.statSync(masterPlaylistPath).isFile() ||
+    fs.statSync(masterPlaylistPath).size === 0
+  ) {
+    throw new Error("Master playlist is missing or empty.");
+  }
+
+  const masterPlaylist = fs.readFileSync(masterPlaylistPath, "utf8");
+
+  if (!masterPlaylist.startsWith("#EXTM3U")) {
+    throw new Error("Master playlist is invalid.");
+  }
+
+  const key = `videos/${videoId}/master.m3u8`;
+
+  // Replace only the master playlist, not the already uploaded qualities.
+  await deleteB2Prefix(key);
+
+  await uploadFileToB2(masterPlaylistPath, key, onProgress);
+
+  return key;
 };
 
 // Upload an entire HLS directory to B2.
@@ -290,8 +556,11 @@ const uploadDirectoryToB2 = async (
   };
 
   // Upload files in batches to control concurrency.
-  for (let i = 0; i < files.length; i += concurrency) {
-    const batch = files.slice(i, i + concurrency);
+  // Upload the master playlist last so it does not reference unfinished uploads.
+  const orderedFiles = otherFiles;
+
+  for (let i = 0; i < orderedFiles.length; i += concurrency) {
+    const batch = orderedFiles.slice(i, i + concurrency);
 
     await Promise.all(
       batch.map(async (filePath) => {
@@ -302,7 +571,11 @@ const uploadDirectoryToB2 = async (
           .replace(/\\/g, "/");
 
         await uploadFileToB2(filePath, key, (uploadedBytes) => {
-          fileProgress.set(filePath, uploadedBytes);
+          fileProgress.set(
+            filePath,
+            Math.min(uploadedBytes, fs.statSync(filePath).size)
+          );
+
           reportProgress();
         });
 
@@ -423,7 +696,10 @@ const deleteOriginalVideoFromB2 = async (originalKey) => {
 export {
   uploadFileToB2,
   uploadDirectoryToB2,
+  uploadQualityDirectoryToB2,
+  uploadMasterPlaylistToB2,
   deleteVideoDirectoryFromB2,
+  deleteQualityDirectoryFromB2,
   getFileFromB2,
   getOriginalVideoFromB2,
   deleteOriginalVideoFromB2,

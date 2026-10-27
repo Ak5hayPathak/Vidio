@@ -1,7 +1,6 @@
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
-import crypto from "crypto";
 
 const PROCESSED_VIDEOS_DIRECTORY = path.join("public", "processed");
 
@@ -95,6 +94,11 @@ const getSupportedQualities = (videoHeight) => {
   return AVAILABLE_QUALITIES.filter((quality) => quality.height <= videoHeight);
 };
 
+//get quality configuration using its name
+const getQualityConfig = (qualityName) => {
+  return AVAILABLE_QUALITIES.find((quality) => quality.name === qualityName);
+};
+
 //get video metadata using runFFprobe
 const runFFprobe = (filePath) => {
   return new Promise((resolve, reject) => {
@@ -165,7 +169,6 @@ const runFFmpeg = (args, { duration, onProgress } = {}) => {
     ]);
 
     let errorOutput = "";
-
     let progressOutput = "";
 
     // Read FFmpeg progress information
@@ -218,7 +221,48 @@ const runFFmpeg = (args, { duration, onProgress } = {}) => {
   });
 };
 
+//checks that the playlist is finalized and every referenced segment exists
+// and is non-empty.
+const isQualityComplete = (qualityDirectory) => {
+  try {
+    const playlistPath = path.join(qualityDirectory, "playlist.m3u8");
+
+    if (!fs.existsSync(playlistPath)) {
+      return false;
+    }
+
+    const playlist = fs.readFileSync(playlistPath, "utf8");
+
+    if (!playlist.includes("#EXT-X-ENDLIST")) {
+      return false;
+    }
+
+    const segments = playlist
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.endsWith(".ts"));
+
+    if (segments.length === 0) {
+      return false;
+    }
+
+    return segments.every((segment) => {
+      const segmentPath = path.join(qualityDirectory, segment);
+
+      return (
+        fs.existsSync(segmentPath) &&
+        fs.statSync(segmentPath).isFile() &&
+        fs.statSync(segmentPath).size > 0
+      );
+    });
+  } catch (error) {
+    console.error("Quality validation failed:", error.message);
+    return false;
+  }
+};
+
 // generates an HLS version of the video for a specific quality
+// Reuses completed local output so interrupted jobs do not regenerate it.
 const generateVideoQuality = async (
   inputPath,
   quality,
@@ -226,11 +270,38 @@ const generateVideoQuality = async (
   duration,
   onProgress
 ) => {
+  if (!videoId) {
+    throw new Error("Video ID is required for processing.");
+  }
+
+  if (!quality?.name || !Number.isFinite(quality.height)) {
+    throw new Error("A valid quality configuration is required.");
+  }
+
   const qualityDirectory = path.join(
     PROCESSED_VIDEOS_DIRECTORY,
     videoId,
     quality.name
   );
+
+  // Reuse the local output if the previous attempt completed generation.
+  if (isQualityComplete(qualityDirectory)) {
+    console.log(`${quality.name} already complete locally. Reusing output.`);
+    onProgress?.(100);
+    return qualityDirectory;
+  }
+
+  if (!inputPath) {
+    throw new Error(
+      `Original video is required to generate quality: ${quality.name}`
+    );
+  }
+
+  // Remove only this quality's incomplete output.
+  fs.rmSync(qualityDirectory, {
+    recursive: true,
+    force: true,
+  });
 
   fs.mkdirSync(qualityDirectory, {
     recursive: true,
@@ -239,107 +310,100 @@ const generateVideoQuality = async (
   const playlistPath = path.join(qualityDirectory, "playlist.m3u8");
   const segmentPath = path.join(qualityDirectory, "segment%d.ts");
 
-  await runFFmpeg(
-    [
-      "-i",
-      inputPath,
-      //Input video file
+  try {
+    await runFFmpeg(
+      [
+        "-i",
+        inputPath,
+        //Input video file
 
-      "-vf",
-      `scale=-2:${quality.height}`,
-      //resized the video
+        "-vf",
+        `scale=-2:${quality.height}`,
+        //resized the video
 
-      "-c:v",
-      "libx264",
-      //uses the H.264 video codec
+        "-c:v",
+        "libx264",
+        //uses the H.264 video codec
 
-      "-preset",
-      "veryfast",
+        "-preset",
+        "veryfast",
 
-      "-b:v",
-      quality.bitrate,
-      //sets the video bitrate
+        "-b:v",
+        quality.bitrate,
+        //sets the video bitrate
 
-      "-c:a",
-      "aac",
-      //uses AAC audio encoding
+        "-c:a",
+        "aac",
+        //uses AAC audio encoding
 
-      "-b:a",
-      "128k",
-      //sets audio bitrate to 128 kbps
+        "-b:a",
+        "128k",
+        //sets audio bitrate to 128 kbps
 
-      "-hls_time",
-      "4",
-      //creates HLS segments of approximately 4 seconds
+        "-hls_time",
+        "4",
+        //creates HLS segments of approximately 4 seconds
 
-      "-force_key_frames",
-      "expr:gte(t,n_forced*4)",
-      // forces keyframes approximately every 4 seconds
-      // so the video can be segmented properly
+        "-force_key_frames",
+        "expr:gte(t,n_forced*4)",
+        // forces keyframes approximately every 4 seconds
+        // so the video can be segmented properly
 
-      "-hls_list_size",
-      "0",
-      //keeps all segments in the playlist
+        "-hls_list_size",
+        "0",
+        //keeps all segments in the playlist
 
-      "-hls_segment_filename",
-      segmentPath,
-      //tells FFmpeg where to save the .ts segment files
+        "-hls_segment_filename",
+        segmentPath,
+        //tells FFmpeg where to save the .ts segment files
 
-      playlistPath,
-      //the final output playlist
-    ],
-    {
-      duration,
-      onProgress,
+        playlistPath,
+        //the final output playlist
+      ],
+      {
+        duration,
+        onProgress,
+      }
+    );
+
+    // Verify the generated output before accepting it.
+    if (!isQualityComplete(qualityDirectory)) {
+      throw new Error(`Generated quality ${quality.name} is incomplete.`);
     }
-  );
 
-  console.log(`${quality.name} generated successfully!`);
-};
+    console.log(`${quality.name} generated successfully!`);
 
-//checks that the playlist is finalized and every referenced segment exists
-// and is non-empty.
-const isQualityComplete = (qualityDirectory) => {
-  const playlistPath = path.join(qualityDirectory, "playlist.m3u8");
+    return qualityDirectory;
+  } catch (error) {
+    // Remove only the failed quality's output so other qualities remain intact.
+    fs.rmSync(qualityDirectory, {
+      recursive: true,
+      force: true,
+    });
 
-  if (!fs.existsSync(playlistPath)) {
-    return false;
+    throw error;
   }
-
-  const playlist = fs.readFileSync(playlistPath, "utf8");
-
-  if (!playlist.includes("#EXT-X-ENDLIST")) {
-    return false;
-  }
-
-  const segments = playlist
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.endsWith(".ts"));
-
-  if (segments.length === 0) {
-    return false;
-  }
-
-  return segments.every((segment) => {
-    const segmentPath = path.join(qualityDirectory, segment);
-
-    return fs.existsSync(segmentPath) && fs.statSync(segmentPath).size > 0;
-  });
 };
 
 //the worker can now check all expected HLS outputs with one function call,
 //while the filesystem paths and completeness checks remain inside videoProcessor.js.
+// Supports both quality configurations and job quality status objects.
 const areQualitiesComplete = (videoId, qualities) => {
   if (!qualities?.length) {
     return false;
   }
 
   return qualities.every((quality) => {
+    const qualityName = quality.name ?? quality.quality;
+
+    if (!qualityName) {
+      return false;
+    }
+
     const qualityDirectory = path.join(
       PROCESSED_VIDEOS_DIRECTORY,
       videoId,
-      quality.name
+      qualityName
     );
 
     return isQualityComplete(qualityDirectory);
@@ -350,18 +414,47 @@ const areQualitiesComplete = (videoId, qualities) => {
 // that tells the video player which qualities are available.
 // The player can then choose the appropriate quality, enabling adaptive bitrate streaming
 const createMasterPlaylist = (qualities, videoId) => {
+  if (!videoId || !qualities?.length) {
+    throw new Error(
+      "Video ID and at least one quality are required for the master playlist."
+    );
+  }
+
+  // Accept either quality configurations or quality status objects.
+  const qualityConfigs = qualities.map((quality) => {
+    if (quality.name && quality.height && quality.width && quality.bandwidth) {
+      return quality;
+    }
+
+    const qualityName = quality.quality ?? quality.name;
+    const config = getQualityConfig(qualityName);
+
+    if (!config) {
+      throw new Error(`Unknown quality configuration: ${qualityName}`);
+    }
+
+    return config;
+  });
+
+  const outputDirectory = path.join(PROCESSED_VIDEOS_DIRECTORY, videoId);
+
+  fs.mkdirSync(outputDirectory, {
+    recursive: true,
+  });
+
   let playlist = "#EXTM3U\n#EXT-X-VERSION:3\n";
 
-  for (const quality of qualities) {
+  for (const quality of qualityConfigs) {
     playlist += `#EXT-X-STREAM-INF:BANDWIDTH=${quality.bandwidth},`;
     playlist += `RESOLUTION=${quality.width}x${quality.height}\n`;
     playlist += `${videoId}/${quality.name}/playlist.m3u8\n`;
   }
 
-  fs.writeFileSync(
-    path.join(PROCESSED_VIDEOS_DIRECTORY, videoId, "master.m3u8"),
-    playlist
-  );
+  const masterPlaylistPath = path.join(outputDirectory, "master.m3u8");
+
+  fs.writeFileSync(masterPlaylistPath, playlist);
+
+  return masterPlaylistPath;
 };
 
 //cleans up incomplete video output
@@ -470,7 +563,9 @@ const processVideo = async (
 
     const outputDirectory = path.join(PROCESSED_VIDEOS_DIRECTORY, videoId);
 
-    fs.mkdirSync(outputDirectory, { recursive: true });
+    fs.mkdirSync(outputDirectory, {
+      recursive: true,
+    });
 
     const qualityProgress = new Map(
       supportedQualities.map((quality) => [quality.name, 0])
@@ -488,6 +583,7 @@ const processVideo = async (
       });
     };
 
+    // Generate and validate each quality independently.
     for (const quality of supportedQualities) {
       const qualityDirectory = path.join(outputDirectory, quality.name);
 
@@ -498,42 +594,19 @@ const processVideo = async (
         continue;
       }
 
-      if (!inputPath) {
-        throw new Error(
-          `Original video is required to generate missing quality: ${quality.name}`
-        );
-      }
-
-      // Remove only this quality's incomplete output.
-      fs.rmSync(qualityDirectory, {
-        recursive: true,
-        force: true,
-      });
-
-      try {
-        await generateVideoQuality(
-          inputPath,
-          quality,
-          videoId,
-          duration,
-          (progress) => {
-            qualityProgress.set(quality.name, progress);
-            reportOverallProgress();
-          }
-        );
-
-        // Verify the newly generated output before accepting it.
-        if (!isQualityComplete(qualityDirectory)) {
-          throw new Error(`Generated quality ${quality.name} is incomplete.`);
+      await generateVideoQuality(
+        inputPath,
+        quality,
+        videoId,
+        duration,
+        (progress) => {
+          qualityProgress.set(quality.name, progress);
+          reportOverallProgress();
         }
-      } catch (error) {
-        fs.rmSync(qualityDirectory, {
-          recursive: true,
-          force: true,
-        });
+      );
 
-        throw error;
-      }
+      qualityProgress.set(quality.name, 100);
+      reportOverallProgress();
     }
 
     // Validate every required quality before creating the master playlist.
@@ -547,7 +620,10 @@ const processVideo = async (
       }
     }
 
-    createMasterPlaylist(supportedQualities, videoId);
+    const masterPlaylistPath = createMasterPlaylist(
+      supportedQualities,
+      videoId
+    );
 
     onProgress?.({
       progress: 100,
@@ -559,7 +635,7 @@ const processVideo = async (
     return {
       videoId,
       outputDirectory,
-      masterPlaylistPath: path.join(outputDirectory, "master.m3u8"),
+      masterPlaylistPath,
       qualities,
       duration,
     };
@@ -572,9 +648,13 @@ const processVideo = async (
 
 export {
   processVideo,
+  generateVideoQuality,
   generateThumbnail,
   runFFprobe,
   getSupportedQualities,
+  getQualityConfig,
   isQualityComplete,
   areQualitiesComplete,
+  createMasterPlaylist,
+  cleanupVideoOutput,
 };

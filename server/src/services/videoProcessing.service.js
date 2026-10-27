@@ -1,9 +1,20 @@
-import { processVideo, generateThumbnail } from "../utils/videoProcessor.js";
+import {
+  processVideo,
+  generateVideoQuality,
+  generateThumbnail,
+  runFFprobe,
+  getQualityConfig,
+  createMasterPlaylist,
+} from "../utils/videoProcessor.js";
+
 import {
   uploadDirectoryToB2,
+  uploadQualityDirectoryToB2,
+  uploadMasterPlaylistToB2,
   deleteVideoDirectoryFromB2,
   getOriginalVideoFromB2,
 } from "./b2.service.js";
+
 import { uploadOnCloudinary } from "./cloudinary.service.js";
 import { deleteLocalHLS } from "../utils/fileCleanup.js";
 import { APIError } from "../utils/APIError.js";
@@ -43,6 +54,199 @@ const downloadOriginalVideoFromB2 = async (originalKey, videoId) => {
   }
 };
 
+// Process and upload one quality independently.
+// Local output is retained until the worker confirms the quality status is saved.
+const processAndUploadQuality = async (
+  inputPath,
+  videoId,
+  quality,
+  onProgress,
+  maxRetries = 5,
+  metadata = {}
+) => {
+  if (!videoId) {
+    throw new Error("Video ID is required for processing.");
+  }
+
+  const qualityName =
+    typeof quality === "string" ? quality : (quality?.name ?? quality?.quality);
+
+  const qualityConfig =
+    quality?.height && quality?.width && quality?.bitrate
+      ? quality
+      : getQualityConfig(qualityName);
+
+  if (!qualityConfig) {
+    throw new Error(`Unknown quality configuration: ${qualityName}`);
+  }
+
+  let duration = Number(metadata.duration);
+
+  // Retrieve duration when it was not provided by the upload controller.
+  if (!Number.isFinite(duration) || duration <= 0) {
+    if (!inputPath) {
+      throw new Error(
+        `Original video is required to determine duration for ${qualityName}.`
+      );
+    }
+
+    const videoMetadata = await runFFprobe(inputPath);
+
+    duration = Number(videoMetadata.format?.duration);
+
+    if (!Number.isFinite(duration) || duration <= 0) {
+      throw new Error("Unable to determine valid video duration.");
+    }
+  }
+
+  const qualityDirectory = path.join(
+    "public",
+    "processed",
+    videoId,
+    qualityName
+  );
+
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(
+        `Processing quality ${qualityName}. Attempt ${attempt}/${maxRetries}`
+      );
+
+      // Generate the quality, or reuse its complete local output.
+      await generateVideoQuality(
+        inputPath,
+        qualityConfig,
+        videoId,
+        duration,
+        (progress) => {
+          onProgress?.({
+            progress: 10 + (progress * 60) / 100,
+            stage: `Generating ${qualityName}`,
+            quality: qualityName,
+          });
+        }
+      );
+
+      // Upload only this quality. Failed uploads are retried independently.
+      const uploadResult = await uploadQualityDirectoryToB2(
+        qualityDirectory,
+        videoId,
+        qualityName,
+        3,
+        (progressData) => {
+          onProgress?.({
+            progress: 70 + (progressData.progress * 28) / 100,
+            stage: `Uploading ${qualityName}`,
+            quality: qualityName,
+          });
+        }
+      );
+
+      onProgress?.({
+        progress: 98,
+        stage: `${qualityName} upload completed`,
+        quality: qualityName,
+      });
+
+      // Keep local output until the worker persists the uploaded status.
+      return {
+        videoId,
+        quality: qualityName,
+        qualityDirectory,
+        playlistKey: uploadResult.playlistKey,
+        uploadedKeys: uploadResult.uploadedKeys,
+        duration,
+      };
+    } catch (error) {
+      lastError = error;
+
+      console.error(
+        `Processing or upload attempt ${attempt} failed for ${qualityName}:`,
+        error.message
+      );
+
+      if (attempt === maxRetries) {
+        throw lastError;
+      }
+
+      console.log(`Retrying quality ${qualityName}...`);
+    }
+  }
+
+  throw lastError ?? new Error(`Failed to process quality ${qualityName}.`);
+};
+
+// Upload the master playlist after all required qualities are uploaded.
+const processAndUploadMasterPlaylist = async (
+  videoId,
+  qualities,
+  onProgress
+) => {
+  if (!videoId || !Array.isArray(qualities) || qualities.length === 0) {
+    throw new Error(
+      "Video ID and required qualities are needed to create the master playlist."
+    );
+  }
+
+  // Accept quality configurations or job status objects.
+  const qualityConfigs = qualities.map((quality) => {
+    if (
+      quality?.name &&
+      quality?.height &&
+      quality?.width &&
+      quality?.bandwidth
+    ) {
+      return quality;
+    }
+
+    const qualityName = quality?.quality ?? quality?.name;
+
+    const config = getQualityConfig(qualityName);
+
+    if (!config) {
+      throw new Error(`Unknown quality configuration: ${qualityName}`);
+    }
+
+    return config;
+  });
+
+  const masterPlaylistPath = createMasterPlaylist(qualityConfigs, videoId);
+
+  onProgress?.({
+    progress: 95,
+    stage: "Uploading master playlist",
+  });
+
+  const videoFile = await uploadMasterPlaylistToB2(
+    masterPlaylistPath,
+    videoId,
+    (uploadedBytes) => {
+      // Master playlist is small; report its upload stage without
+      // treating the callback's byte count as an overall percentage.
+      onProgress?.({
+        progress: 98,
+        stage: "Uploading master playlist",
+        uploadedBytes,
+      });
+    }
+  );
+
+  onProgress?.({
+    progress: 100,
+    stage: "Master playlist uploaded",
+  });
+
+  return {
+    videoId,
+    videoFile,
+    masterPlaylistPath,
+    qualities: qualityConfigs.map((quality) => quality.name),
+  };
+};
+
+// Legacy whole-video processing and upload function.
 const processAndUploadVideo = async (
   inputPath,
   videoId,
@@ -177,6 +381,8 @@ const processAndUploadThumbnail = async (
 
 export {
   processAndUploadVideo,
+  processAndUploadQuality,
+  processAndUploadMasterPlaylist,
   processAndUploadThumbnail,
   downloadOriginalVideoFromB2,
   // Keep the newer name available too, if another module uses it.

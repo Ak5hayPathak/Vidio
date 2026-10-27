@@ -87,11 +87,18 @@ const publishAVideo = asyncHandler(async (req, res) => {
       throw new APIError(400, "Unable to determine video duration.");
     }
 
-    const qualities = getSupportedQualities(videoStream.height);
+    // Keep complete FFmpeg configurations separate from processing statuses.
+    const qualityConfigs = getSupportedQualities(videoStream.height);
 
-    if (!qualities.length) {
+    if (!qualityConfigs.length) {
       throw new APIError(400, "No supported video qualities found.");
     }
+
+    // Initialize an independent checkpoint for each required quality.
+    const qualities = qualityConfigs.map(({ name }) => ({
+      quality: name,
+      status: "pending",
+    }));
 
     // 4. Create the processing record.
     video = await Video.create({
@@ -103,7 +110,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
       isPublished: false,
     });
 
-    // 5. Queue all required metadata for the worker.
+    // 5. Queue metadata and quality checkpoints for the worker.
     await videoProcessingQueue.add(
       "process-video",
       {
@@ -114,6 +121,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
         username: req.user.username,
         userId: userId.toString(),
         qualities,
+        qualityConfigs,
         duration,
       },
       {

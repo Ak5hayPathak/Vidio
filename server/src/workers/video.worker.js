@@ -5,13 +5,21 @@ import { Video } from "../models/video.model.js";
 import { Subscription } from "../models/subscription.model.js";
 import { Notification } from "../models/notification.model.js";
 import {
-  processAndUploadVideo,
+  processAndUploadQuality,
+  processAndUploadMasterPlaylist,
   processAndUploadThumbnail,
   downloadOriginalFileFromB2,
 } from "../services/videoProcessing.service.js";
-import { areQualitiesComplete } from "../utils/videoProcessor.js";
-import { deleteOriginalVideoFromB2 } from "../services/b2.service.js";
+import {
+  getQualityConfig,
+  isQualityComplete,
+} from "../utils/videoProcessor.js";
+import {
+  deleteOriginalVideoFromB2,
+  deleteQualityDirectoryFromB2,
+} from "../services/b2.service.js";
 import fs from "fs/promises";
+import path from "path";
 import mongoose from "mongoose";
 import validateEnv from "../config/validateEnv.js";
 
@@ -41,6 +49,25 @@ const cleanupFile = async (filePath) => {
     if (error.code !== "ENOENT") {
       console.error(`Failed to delete temporary file: ${filePath}`, error);
     }
+  }
+};
+
+// Safely delete local HLS output without interrupting successful processing.
+const cleanupDirectory = async (directoryPath) => {
+  if (!directoryPath) return;
+
+  try {
+    await fs.rm(directoryPath, {
+      recursive: true,
+      force: true,
+    });
+
+    console.log(`Local directory deleted: ${directoryPath}`);
+  } catch (error) {
+    console.error(
+      `Failed to delete local directory: ${directoryPath}`,
+      error.message
+    );
   }
 };
 
@@ -77,6 +104,58 @@ const publishProgress = async (
   );
 };
 
+// Keep quality processing checkpoints in the BullMQ job data.
+const persistQualityStatuses = async (job, qualities) => {
+  await job.updateData({
+    ...job.data,
+    qualities,
+  });
+};
+
+// Convert quality metadata or status objects into a consistent checkpoint list.
+const normalizeQualityStatuses = (qualities) => {
+  if (!Array.isArray(qualities) || qualities.length === 0) {
+    throw new Error("No required video qualities found in the job.");
+  }
+
+  const normalizedQualities = qualities.map((quality) => {
+    const qualityName =
+      typeof quality === "string"
+        ? quality
+        : (quality?.quality ?? quality?.name);
+
+    if (!qualityName || !getQualityConfig(qualityName)) {
+      throw new Error(`Invalid or unsupported quality: ${qualityName}`);
+    }
+
+    const status =
+      quality && typeof quality === "object" && quality.status
+        ? quality.status
+        : "pending";
+
+    if (!["pending", "processing", "uploaded"].includes(status)) {
+      throw new Error(
+        `Invalid processing status for quality ${qualityName}: ${status}`
+      );
+    }
+
+    return {
+      quality: qualityName,
+      status,
+    };
+  });
+
+  const uniqueNames = new Set(
+    normalizedQualities.map((quality) => quality.quality)
+  );
+
+  if (uniqueNames.size !== normalizedQualities.length) {
+    throw new Error("Duplicate quality entries found in the job.");
+  }
+
+  return normalizedQualities;
+};
+
 await connectDB();
 
 const videoWorker = new Worker(
@@ -90,7 +169,6 @@ const videoWorker = new Worker(
       thumbnailLocalPath,
       username,
       userId,
-      qualities: requiredQualities,
       duration: requiredDuration,
     } = job.data;
 
@@ -120,12 +198,55 @@ const videoWorker = new Worker(
       const needsThumbnail = !thumbnailURL;
       const needsProcessing = video.processingStatus !== "ready" || !videoFile;
 
-      // Check local HLS outputs before downloading the original.
-      const hlsAlreadyComplete =
-        needsProcessing && areQualitiesComplete(videoId, requiredQualities);
+      // Read the latest quality checkpoints from the job data.
+      const qualityStatuses = normalizeQualityStatuses(job.data.qualities);
 
-      const needsOriginalDownload =
-        needsThumbnail || (needsProcessing && !hlsAlreadyComplete);
+      // Keep complete FFmpeg configurations separate from quality statuses.
+      const suppliedQualityConfigs = job.data.qualityConfigs;
+
+      const qualityConfigs = qualityStatuses.map((qualityStatus) => {
+        const suppliedConfig = suppliedQualityConfigs?.find(
+          (quality) => quality.name === qualityStatus.quality
+        );
+
+        return suppliedConfig ?? getQualityConfig(qualityStatus.quality);
+      });
+
+      if (
+        qualityConfigs.some(
+          (quality) =>
+            !quality ||
+            !Number.isFinite(quality.height) ||
+            !Number.isFinite(quality.width) ||
+            !Number.isFinite(quality.bandwidth)
+        )
+      ) {
+        throw new Error("One or more quality configurations are invalid.");
+      }
+
+      // Persist normalized checkpoints before processing starts.
+      await persistQualityStatuses(job, qualityStatuses);
+
+      // Download the original only when a thumbnail or quality generation
+      // requires it. Completed uploaded qualities do not need re-encoding.
+      const needsQualityGeneration =
+        needsProcessing &&
+        qualityStatuses.some((quality) => {
+          if (quality.status === "uploaded") {
+            return false;
+          }
+
+          const qualityDirectory = path.join(
+            "public",
+            "processed",
+            videoId,
+            quality.quality
+          );
+
+          return !isQualityComplete(qualityDirectory);
+        });
+
+      const needsOriginalDownload = needsThumbnail || needsQualityGeneration;
 
       if (needsOriginalDownload) {
         if (!originalKey) {
@@ -136,14 +257,13 @@ const videoWorker = new Worker(
           originalKey,
           videoId
         );
-      } else if (hlsAlreadyComplete) {
+      } else {
         console.log(
-          `All HLS qualities are complete for ${videoId}. ` +
-            "Skipping original download."
+          `Local output or uploaded checkpoints are sufficient for ${videoId}.`
         );
       }
 
-      // Process thumbnail and persist its checkpoint.
+      // Process the thumbnail and persist its checkpoint.
       if (needsThumbnail) {
         await publishProgress(
           mongoVideoId,
@@ -193,39 +313,105 @@ const videoWorker = new Worker(
           stage: "Processing video",
         });
 
-        let lastPersistedThreshold = 0;
+        const totalQualities = qualityStatuses.length;
 
-        const result = await processAndUploadVideo(
-          videoFileLocalPath,
-          videoId,
-          async (progressData) => {
-            const { progress } = progressData;
-            const currentThreshold = Math.floor(progress / 20) * 20;
-            const shouldPersist = currentThreshold > lastPersistedThreshold;
+        // Process and upload each quality independently.
+        for (let index = 0; index < qualityStatuses.length; index++) {
+          const qualityStatus = qualityStatuses[index];
+          const qualityName = qualityStatus.quality;
 
-            if (shouldPersist) {
-              lastPersistedThreshold = currentThreshold;
-            }
-
-            await publishProgress(
-              mongoVideoId,
-              userId,
-              progressData,
-              shouldPersist
+          if (qualityStatus.status === "uploaded") {
+            console.log(
+              `Quality ${qualityName} is already uploaded. Skipping.`
             );
-          },
-          5,
-          {
-            qualities: requiredQualities,
-            duration: requiredDuration,
+
+            continue;
+          }
+
+          // A previous attempt may have uploaded only part of this quality.
+          // Remove that quality's remote versions before recovering it.
+          if (qualityStatus.status === "processing") {
+            console.log(`Recovering interrupted quality ${qualityName}.`);
+
+            await deleteQualityDirectoryFromB2(videoId, qualityName);
+          }
+
+          // Persist the processing checkpoint before starting this quality.
+          qualityStatuses[index] = {
+            ...qualityStatus,
+            status: "processing",
+          };
+
+          await persistQualityStatuses(job, qualityStatuses);
+
+          const qualityConfig = qualityConfigs[index];
+
+          const result = await processAndUploadQuality(
+            videoFileLocalPath,
+            videoId,
+            qualityConfig,
+            async (progressData) => {
+              const qualityProgress = progressData.progress ?? 0;
+
+              const overallProgress =
+                10 + ((index + qualityProgress / 100) / totalQualities) * 80;
+
+              await publishProgress(mongoVideoId, userId, {
+                progress: overallProgress,
+                stage: progressData.stage,
+                quality: qualityName,
+              });
+            },
+            5,
+            {
+              duration: requiredDuration ?? duration,
+            }
+          );
+
+          // Save the uploaded checkpoint before deleting local quality output.
+          qualityStatuses[index] = {
+            ...qualityStatuses[index],
+            status: "uploaded",
+          };
+
+          await persistQualityStatuses(job, qualityStatuses);
+
+          // Keep local output only until its upload checkpoint is saved.
+          await cleanupDirectory(result.qualityDirectory);
+
+          duration = result.duration;
+
+          console.log(`Quality ${qualityName} uploaded and checkpoint saved`);
+        }
+
+        // Ensure all required qualities are uploaded before finalizing.
+        if (qualityStatuses.some((quality) => quality.status !== "uploaded")) {
+          throw new Error(
+            "Cannot finalize video: one or more qualities are not uploaded."
+          );
+        }
+
+        // Build and upload the master playlist after all qualities finish.
+        const masterResult = await processAndUploadMasterPlaylist(
+          videoId,
+          qualityConfigs,
+          (progressData) => {
+            publishProgress(mongoVideoId, userId, progressData).catch(
+              (error) => {
+                console.error(
+                  "Failed to publish master playlist progress:",
+                  error.message
+                );
+              }
+            );
           }
         );
 
-        videoFile = result.videoFile;
-        qualities = result.qualities;
-        duration = result.duration;
+        videoFile = masterResult.videoFile;
+        qualities = masterResult.qualities;
+        duration = duration ?? requiredDuration;
 
-        // Persist readiness before deleting the original.
+        // Persist readiness before deleting local output or the original.
         video = await Video.findByIdAndUpdate(
           mongoVideoId,
           {
@@ -245,8 +431,15 @@ const videoWorker = new Worker(
         }
 
         console.log(`Video processing completed for UUID: ${videoId}`);
+
+        // Remove the entire local HLS directory after readiness is persisted.
+        // Cleanup failure must not turn a successful upload into a failed job.
+        await cleanupDirectory(path.join("public", "processed", videoId));
       } else {
         console.log(`Video ${videoId} is already ready. Skipping encoding.`);
+
+        // Also clean up any leftover HLS output when a ready job is retried.
+        await cleanupDirectory(path.join("public", "processed", videoId));
       }
 
       // Delete the original only after the database confirms readiness.
