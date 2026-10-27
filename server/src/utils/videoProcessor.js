@@ -297,6 +297,55 @@ const generateVideoQuality = async (
   console.log(`${quality.name} generated successfully!`);
 };
 
+//checks that the playlist is finalized and every referenced segment exists
+// and is non-empty.
+const isQualityComplete = (qualityDirectory) => {
+  const playlistPath = path.join(qualityDirectory, "playlist.m3u8");
+
+  if (!fs.existsSync(playlistPath)) {
+    return false;
+  }
+
+  const playlist = fs.readFileSync(playlistPath, "utf8");
+
+  if (!playlist.includes("#EXT-X-ENDLIST")) {
+    return false;
+  }
+
+  const segments = playlist
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.endsWith(".ts"));
+
+  if (segments.length === 0) {
+    return false;
+  }
+
+  return segments.every((segment) => {
+    const segmentPath = path.join(qualityDirectory, segment);
+
+    return fs.existsSync(segmentPath) && fs.statSync(segmentPath).size > 0;
+  });
+};
+
+//the worker can now check all expected HLS outputs with one function call,
+//while the filesystem paths and completeness checks remain inside videoProcessor.js.
+const areQualitiesComplete = (videoId, qualities) => {
+  if (!qualities?.length) {
+    return false;
+  }
+
+  return qualities.every((quality) => {
+    const qualityDirectory = path.join(
+      PROCESSED_VIDEOS_DIRECTORY,
+      videoId,
+      quality.name
+    );
+
+    return isQualityComplete(qualityDirectory);
+  });
+};
+
 //creates the master HLS playlist acts like a directory/map
 // that tells the video player which qualities are available.
 // The player can then choose the appropriate quality, enabling adaptive bitrate streaming
@@ -362,33 +411,71 @@ const generateThumbnail = async (inputPath, outputPath) => {
   }
 };
 
-const processVideo = async (inputPath, videoId, onProgress) => {
+const processVideo = async (
+  inputPath,
+  videoId,
+  onProgress,
+  { qualities: suppliedQualities, duration: suppliedDuration } = {}
+) => {
   if (!videoId) {
     throw new Error("Video ID is required for processing.");
   }
 
   try {
-    const metadata = await runFFprobe(inputPath);
+    let supportedQualities = suppliedQualities;
+    let duration = Number(suppliedDuration);
 
-    const duration = Number(metadata.format.duration);
+    const validQualities =
+      Array.isArray(supportedQualities) &&
+      supportedQualities.length > 0 &&
+      supportedQualities.every(
+        (quality) =>
+          quality &&
+          typeof quality.name === "string" &&
+          Number.isFinite(quality.height) &&
+          Number.isFinite(quality.width) &&
+          typeof quality.bitrate === "string" &&
+          Number.isFinite(quality.bandwidth)
+      );
 
-    const videoStream = metadata.streams.find(
-      (stream) => stream.codec_type === "video"
-    );
+    if (!validQualities || !Number.isFinite(duration) || duration <= 0) {
+      if (!inputPath) {
+        throw new Error(
+          "A valid input video path is required when metadata is unavailable."
+        );
+      }
 
-    const supportedQualities = getSupportedQualities(videoStream.height);
+      const metadata = await runFFprobe(inputPath);
+
+      duration = Number(metadata.format?.duration);
+
+      const videoStream = metadata.streams?.find(
+        (stream) => stream.codec_type === "video"
+      );
+
+      if (!videoStream?.height || !Number.isFinite(duration) || duration <= 0) {
+        throw new Error("Unable to determine valid video metadata.");
+      }
+
+      supportedQualities = getSupportedQualities(videoStream.height);
+
+      if (supportedQualities.length === 0) {
+        throw new Error("No supported video qualities found.");
+      }
+    }
 
     const qualities = supportedQualities.map((quality) => quality.name);
-    console.log("Generating: ", qualities);
 
-    // Track the progress of each quality
-    const qualityProgress = new Map();
+    console.log("Required qualities:", qualities);
 
-    supportedQualities.forEach((quality) => {
-      qualityProgress.set(quality.name, 0);
-    });
+    const outputDirectory = path.join(PROCESSED_VIDEOS_DIRECTORY, videoId);
 
-    // Calculate the overall processing progress
+    fs.mkdirSync(outputDirectory, { recursive: true });
+
+    const qualityProgress = new Map(
+      supportedQualities.map((quality) => [quality.name, 0])
+    );
+
     const reportOverallProgress = () => {
       const values = [...qualityProgress.values()];
 
@@ -402,61 +489,92 @@ const processVideo = async (inputPath, videoId, onProgress) => {
     };
 
     for (const quality of supportedQualities) {
-      await generateVideoQuality(
-        inputPath,
-        quality,
-        videoId,
-        duration,
-        (progress) => {
-          qualityProgress.set(quality.name, progress);
-          reportOverallProgress();
+      const qualityDirectory = path.join(outputDirectory, quality.name);
+
+      if (isQualityComplete(qualityDirectory)) {
+        console.log(`${quality.name} already complete. Skipping.`);
+        qualityProgress.set(quality.name, 100);
+        reportOverallProgress();
+        continue;
+      }
+
+      if (!inputPath) {
+        throw new Error(
+          `Original video is required to generate missing quality: ${quality.name}`
+        );
+      }
+
+      // Remove only this quality's incomplete output.
+      fs.rmSync(qualityDirectory, {
+        recursive: true,
+        force: true,
+      });
+
+      try {
+        await generateVideoQuality(
+          inputPath,
+          quality,
+          videoId,
+          duration,
+          (progress) => {
+            qualityProgress.set(quality.name, progress);
+            reportOverallProgress();
+          }
+        );
+
+        // Verify the newly generated output before accepting it.
+        if (!isQualityComplete(qualityDirectory)) {
+          throw new Error(`Generated quality ${quality.name} is incomplete.`);
         }
-      );
+      } catch (error) {
+        fs.rmSync(qualityDirectory, {
+          recursive: true,
+          force: true,
+        });
+
+        throw error;
+      }
     }
 
-    //simulataneously generating qualities
-    // await Promise.all(
-    //   supportedQualities.map((quality) =>
-    //     generateVideoQuality(
-    //       inputPath,
-    //       quality,
-    //       videoId,
-    //       duration,
-    //       (progress) => {
-    //         qualityProgress.set(quality.name, progress);
-    //         reportOverallProgress();
-    //       }
-    //     )
-    //   )
-    // );
+    // Validate every required quality before creating the master playlist.
+    for (const quality of supportedQualities) {
+      const qualityDirectory = path.join(outputDirectory, quality.name);
+
+      if (!isQualityComplete(qualityDirectory)) {
+        throw new Error(
+          `Quality ${quality.name} is incomplete. Cannot create master playlist.`
+        );
+      }
+    }
 
     createMasterPlaylist(supportedQualities, videoId);
 
-    // Report that HLS generation has completed
     onProgress?.({
       progress: 100,
       stage: "HLS generation completed",
     });
 
-    console.log("All qualities generated successfully!");
+    console.log("All required qualities are complete.");
 
     return {
       videoId,
-      outputDirectory: path.join(PROCESSED_VIDEOS_DIRECTORY, videoId),
-      masterPlaylistPath: path.join(
-        PROCESSED_VIDEOS_DIRECTORY,
-        videoId,
-        "master.m3u8"
-      ),
-      qualities: supportedQualities.map((quality) => quality.name),
+      outputDirectory,
+      masterPlaylistPath: path.join(outputDirectory, "master.m3u8"),
+      qualities,
       duration,
     };
   } catch (error) {
-    console.error("Video processing failed:");
-    console.error(error.message);
-    cleanupVideoOutput(videoId);
+    console.error("Video processing failed:", error.message);
+    // Preserve completed qualities so a retry can reuse them.
     throw error;
   }
 };
 
-export { processVideo, generateThumbnail };
+export {
+  processVideo,
+  generateThumbnail,
+  runFFprobe,
+  getSupportedQualities,
+  isQualityComplete,
+  areQualitiesComplete,
+};

@@ -9,6 +9,7 @@ import {
   processAndUploadThumbnail,
   downloadOriginalFileFromB2,
 } from "../services/videoProcessing.service.js";
+import { areQualitiesComplete } from "../utils/videoProcessor.js";
 import { deleteOriginalVideoFromB2 } from "../services/b2.service.js";
 import fs from "fs/promises";
 import mongoose from "mongoose";
@@ -89,6 +90,8 @@ const videoWorker = new Worker(
       thumbnailLocalPath,
       username,
       userId,
+      qualities: requiredQualities,
+      duration: requiredDuration,
     } = job.data;
 
     let videoFileLocalPath;
@@ -103,7 +106,6 @@ const videoWorker = new Worker(
         throw new Error("Video UUID or MongoDB ID is missing from the job");
       }
 
-      // 1. Retrieve the document using MongoDB _id.
       let video = await Video.findById(mongoVideoId);
 
       if (!video) {
@@ -118,9 +120,14 @@ const videoWorker = new Worker(
       const needsThumbnail = !thumbnailURL;
       const needsProcessing = video.processingStatus !== "ready" || !videoFile;
 
-      // 2. Download the original only when processing or thumbnail
-      // generation requires it.
-      if (needsThumbnail || needsProcessing) {
+      // Check local HLS outputs before downloading the original.
+      const hlsAlreadyComplete =
+        needsProcessing && areQualitiesComplete(videoId, requiredQualities);
+
+      const needsOriginalDownload =
+        needsThumbnail || (needsProcessing && !hlsAlreadyComplete);
+
+      if (needsOriginalDownload) {
         if (!originalKey) {
           throw new Error("Original video B2 key is missing from the job");
         }
@@ -129,9 +136,14 @@ const videoWorker = new Worker(
           originalKey,
           videoId
         );
+      } else if (hlsAlreadyComplete) {
+        console.log(
+          `All HLS qualities are complete for ${videoId}. ` +
+            "Skipping original download."
+        );
       }
 
-      // 3. Process and save the thumbnail checkpoint.
+      // Process thumbnail and persist its checkpoint.
       if (needsThumbnail) {
         await publishProgress(
           mongoVideoId,
@@ -169,7 +181,7 @@ const videoWorker = new Worker(
         stage: "Thumbnail completed",
       });
 
-      // 4. Process HLS only if the video isn't already ready.
+      // Process HLS only if the video is not already ready.
       if (needsProcessing) {
         await Video.findByIdAndUpdate(mongoVideoId, {
           processingProgress: 0,
@@ -201,6 +213,11 @@ const videoWorker = new Worker(
               progressData,
               shouldPersist
             );
+          },
+          5,
+          {
+            qualities: requiredQualities,
+            duration: requiredDuration,
           }
         );
 
@@ -208,9 +225,7 @@ const videoWorker = new Worker(
         qualities = result.qualities;
         duration = result.duration;
 
-        console.log("Video processing completed");
-
-        // Persist the successful HLS result before deleting the original.
+        // Persist readiness before deleting the original.
         video = await Video.findByIdAndUpdate(
           mongoVideoId,
           {
@@ -234,10 +249,7 @@ const videoWorker = new Worker(
         console.log(`Video ${videoId} is already ready. Skipping encoding.`);
       }
 
-      console.log(`Video ${videoId} is ready`);
-
-      // 5. Delete the original only after the database confirms readiness.
-      // This also retries cleanup on subsequent attempts without re-encoding.
+      // Delete the original only after the database confirms readiness.
       if (originalKey) {
         await deleteOriginalVideoFromB2(originalKey);
         console.log(`Original video deleted from B2: ${originalKey}`);
@@ -247,7 +259,7 @@ const videoWorker = new Worker(
         );
       }
 
-      // 6. Notify the uploader that processing is complete.
+      // Notify the uploader.
       await publishProgress(
         mongoVideoId,
         video.owner.toString(),
@@ -259,12 +271,12 @@ const videoWorker = new Worker(
         true
       );
 
-      // 7. Find subscribers to the video's owner.
+      // Find subscribers.
       const subscriptions = await Subscription.find({
         channel: video.owner,
       }).select("subscriber");
 
-      // 8. Create notifications without duplicates.
+      // Create notifications without duplicates.
       for (const subscription of subscriptions) {
         const recipient = subscription.subscriber;
 
@@ -302,7 +314,6 @@ const videoWorker = new Worker(
 
       console.log("Subscriber notifications processed");
 
-      // 9. Remove local temporary files.
       await cleanupFile(videoFileLocalPath);
       await cleanupFile(thumbnailLocalPath);
 
@@ -324,25 +335,27 @@ const videoWorker = new Worker(
           `Attempt ${job.attemptsMade + 1}/${maxAttempts}:`,
         error.message
       );
+
       console.error(error.stack);
 
       if (isFinalAttempt) {
         try {
-          const video = await Video.findById(mongoVideoId);
+          const failedVideo = await Video.findById(mongoVideoId);
 
-          // Preserve ready status if a later operation fails.
-          if (video && video.processingStatus !== "ready") {
-            video.processingStatus = "failed";
-            video.processingStage = "failed";
-            video.isPublished = false;
-            await video.save();
+          // Do not overwrite a successful ready status.
+          if (failedVideo && failedVideo.processingStatus !== "ready") {
+            failedVideo.processingStatus = "failed";
+            failedVideo.processingStage = "failed";
+            failedVideo.isPublished = false;
+
+            await failedVideo.save();
 
             await redisPublisher.publish(
               "video-processing",
               JSON.stringify({
                 videoId: mongoVideoId,
-                userId: video.owner.toString(),
-                progress: video.processingProgress,
+                userId: failedVideo.owner.toString(),
+                progress: failedVideo.processingProgress,
                 stage: "failed",
                 status: "failed",
               })
@@ -352,17 +365,13 @@ const videoWorker = new Worker(
           console.error("Failed to update video failure status:", failureError);
         }
 
-        await cleanupFile(videoFileLocalPath);
-        await cleanupFile(thumbnailLocalPath);
-
         console.error(`Video ${videoId} permanently failed.`);
       } else {
-        // Remove this attempt's temporary files before BullMQ retries.
-        await cleanupFile(videoFileLocalPath);
-        await cleanupFile(thumbnailLocalPath);
-
         console.log(`Video ${videoId} will be retried.`);
       }
+
+      await cleanupFile(videoFileLocalPath);
+      await cleanupFile(thumbnailLocalPath);
 
       throw error;
     }

@@ -239,6 +239,18 @@ const uploadDirectoryToB2 = async (
 ) => {
   const files = getFilesRecursively(directoryPath);
 
+  const masterPlaylist = files.find(
+    (filePath) => path.basename(filePath) === "master.m3u8"
+  );
+
+  const otherFiles = files.filter(
+    (filePath) => path.basename(filePath) !== "master.m3u8"
+  );
+
+  if (masterPlaylist) {
+    otherFiles.push(masterPlaylist);
+  }
+
   if (files.length === 0) {
     throw new Error(`No files found in directory: ${directoryPath}`);
   }

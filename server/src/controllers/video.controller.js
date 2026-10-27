@@ -20,6 +20,7 @@ import {
   deleteVideoDirectoryFromB2,
   getFileFromB2,
 } from "../services/b2.service.js";
+import { runFFprobe, getSupportedQualities } from "../utils/videoProcessor.js";
 import { generateStreamToken } from "../utils/streamToken.js";
 
 const publishAVideo = asyncHandler(async (req, res) => {
@@ -49,18 +50,13 @@ const publishAVideo = asyncHandler(async (req, res) => {
     throw new APIError(401, "Unauthorized Request!");
   }
 
-  // Generate the UUID once for B2 storage and HLS processing.
   const videoId = crypto.randomUUID();
-
-  // Keep MongoDB's _id separate from the storage UUID.
-  const mongoVideoId = undefined;
 
   let video;
   let originalKey;
-  let job;
 
   try {
-    // 1. Determine the original file extension.
+    // 1. Determine a safe file extension.
     const suppliedExtension = path
       .extname(videoFile.originalname || "")
       .toLowerCase();
@@ -69,12 +65,35 @@ const publishAVideo = asyncHandler(async (req, res) => {
       ? suppliedExtension
       : ".mp4";
 
-    // 2. Upload the original video to durable B2 storage.
+    // 2. Upload the original to durable B2 storage.
     originalKey = `originals/${videoId}/original${extension}`;
 
     await uploadFileToB2(videoFileLocalPath, originalKey);
 
-    // 3. Create the MongoDB document without changing its schema.
+    // 3. Extract metadata before queuing the job.
+    const metadata = await runFFprobe(videoFileLocalPath);
+
+    const videoStream = metadata.streams?.find(
+      (stream) => stream.codec_type === "video"
+    );
+
+    if (!videoStream?.height) {
+      throw new APIError(400, "Unable to determine video dimensions.");
+    }
+
+    const duration = Number(metadata.format?.duration);
+
+    if (!Number.isFinite(duration) || duration <= 0) {
+      throw new APIError(400, "Unable to determine video duration.");
+    }
+
+    const qualities = getSupportedQualities(videoStream.height);
+
+    if (!qualities.length) {
+      throw new APIError(400, "No supported video qualities found.");
+    }
+
+    // 4. Create the processing record.
     video = await Video.create({
       title: title.trim(),
       description,
@@ -84,25 +103,27 @@ const publishAVideo = asyncHandler(async (req, res) => {
       isPublished: false,
     });
 
-    // 4. Queue both IDs so the worker knows which ID to use.
-    job = await videoProcessingQueue.add("process-video", {
-      videoId, // UUID: B2 and HLS paths.
-      mongoVideoId: video._id.toString(), // MongoDB _id.
-      originalKey,
-      thumbnailLocalPath,
-      username: req.user.username,
-      userId: userId.toString(),
-    });
-
-    console.log(
-      `Video processing job added: ${job.id} ` +
-        `(UUID: ${videoId}, MongoDB ID: ${video._id})`
+    // 5. Queue all required metadata for the worker.
+    await videoProcessingQueue.add(
+      "process-video",
+      {
+        videoId,
+        mongoVideoId: video._id.toString(),
+        originalKey,
+        thumbnailLocalPath,
+        username: req.user.username,
+        userId: userId.toString(),
+        qualities,
+        duration,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+      }
     );
   } catch (error) {
     console.error("Failed to upload video or queue processing:", error);
 
-    // These cleanup operations run only if setup failed before
-    // videoProcessingQueue.add() completed successfully.
     if (video) {
       await Video.deleteOne({ _id: video._id }).catch((cleanupError) => {
         console.error("Failed to remove video record:", cleanupError);
@@ -121,21 +142,24 @@ const publishAVideo = asyncHandler(async (req, res) => {
         .map((filePath) => fs.unlink(filePath))
     );
 
+    if (error instanceof APIError) {
+      throw error;
+    }
+
     throw new APIError(
       503,
       "Video upload or processing setup failed. Please try again."
     );
   }
 
-  // 5. The original is now safely stored in B2.
-  // The worker will download it from there, so remove the local copy.
+  // 6. The original is safely stored in B2 and the job is queued.
   await fs.unlink(videoFileLocalPath).catch((error) => {
     if (error.code !== "ENOENT") {
       console.error("Failed to remove local original:", error.message);
     }
   });
 
-  // Keep thumbnailLocalPath available for the worker.
+  // Do not delete thumbnailLocalPath; the worker still needs it.
   return res
     .status(201)
     .json(

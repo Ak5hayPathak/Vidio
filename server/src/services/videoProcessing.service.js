@@ -47,17 +47,23 @@ const processAndUploadVideo = async (
   inputPath,
   videoId,
   onProgress,
-  maxRetries = 5
+  maxRetries = 5,
+  metadata = {}
 ) => {
   try {
-    const videoInfo = await processVideo(inputPath, videoId, (progressData) => {
-      const overallProgress = 10 + (progressData.progress * 60) / 100;
+    const videoInfo = await processVideo(
+      inputPath,
+      videoId,
+      (progressData) => {
+        const overallProgress = 10 + (progressData.progress * 60) / 100;
 
-      onProgress?.({
-        progress: overallProgress,
-        stage: "Generating HLS",
-      });
-    });
+        onProgress?.({
+          progress: overallProgress,
+          stage: "Generating HLS",
+        });
+      },
+      metadata
+    );
 
     const { outputDirectory, qualities, duration } = videoInfo;
 
@@ -107,9 +113,10 @@ const processAndUploadVideo = async (
     }
 
     if (!videoFile) {
-      throw lastError ?? new Error("Video upload failed");
+      throw lastError ?? new Error("Video upload failed.");
     }
 
+    // Delete local HLS only after the B2 upload succeeds.
     await deleteLocalHLS(outputDirectory);
 
     onProgress?.({
