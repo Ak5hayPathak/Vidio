@@ -3,6 +3,7 @@ import path from "path";
 
 import {
   GetObjectCommand,
+  PutObjectCommand,
   ListObjectVersionsCommand,
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
@@ -17,8 +18,13 @@ const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 const MAX_UPLOAD_ATTEMPTS = 5;
 const INITIAL_RETRY_DELAY = 1000;
 const MAX_RETRY_DELAY = 30000;
+// Memory-conscious multipart settings: at most QUEUE_SIZE * PART_SIZE bytes
+// (10 MiB) are buffered per file. 5 MiB is the S3/B2 minimum part size.
 const QUEUE_SIZE = 2;
-const PART_SIZE = 8 * 1024 * 1024;
+const PART_SIZE = 5 * 1024 * 1024;
+
+// Default number of files uploaded in parallel (each may buffer a part).
+const DEFAULT_UPLOAD_CONCURRENCY = 2;
 
 // Wait before retrying a failed operation.
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -54,6 +60,30 @@ const uploadFileToB2 = async (
 
       // A fresh stream is required for every attempt.
       const fileStream = fs.createReadStream(filePath);
+
+      // HLS segments are small. Files below one part are sent with a plain
+      // PutObject, which streams straight from disk without the extra
+      // buffering that the multipart uploader does.
+      if (fileSize < PART_SIZE) {
+        try {
+          await b2Client.send(
+            new PutObjectCommand({
+              Bucket: BUCKET_NAME,
+              Key: key,
+              Body: fileStream,
+              ContentLength: fileSize,
+            })
+          );
+        } finally {
+          fileStream.destroy();
+        }
+
+        onProgress?.(fileSize);
+
+        console.log(`Successfully uploaded: ${key}`);
+
+        return;
+      }
 
       upload = new Upload({
         client: b2Client,
@@ -269,7 +299,7 @@ const deleteQualityDirectoryFromB2 = async (videoId, qualityName) => {
 const uploadDirectoryToPrefix = async (
   directoryPath,
   prefix,
-  concurrency = 5,
+  concurrency = DEFAULT_UPLOAD_CONCURRENCY,
   onProgress,
   { deleteExisting = false } = {}
 ) => {
@@ -376,7 +406,7 @@ const uploadQualityDirectoryToB2 = async (
   qualityDirectoryPath,
   videoId,
   qualityName,
-  concurrency = 5,
+  concurrency = DEFAULT_UPLOAD_CONCURRENCY,
   onProgress
 ) => {
   if (!videoId || !qualityName) {
@@ -500,7 +530,7 @@ const uploadMasterPlaylistToB2 = async (
 const uploadDirectoryToB2 = async (
   directoryPath,
   videoId,
-  concurrency = 5,
+  concurrency = DEFAULT_UPLOAD_CONCURRENCY,
   onProgress
 ) => {
   const files = getFilesRecursively(directoryPath);

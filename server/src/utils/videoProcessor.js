@@ -4,6 +4,45 @@ import path from "path";
 
 const PROCESSED_VIDEOS_DIRECTORY = path.join("public", "processed");
 
+// ---------------------------------------------------------------------------
+// Memory safety settings (Render free instance = 512 MB RAM, shared CPU)
+// ---------------------------------------------------------------------------
+// Highest output height we will ever encode. A 4K/3K encode needs far more RAM
+// than a 512 MB instance has, so the default is 720p. Raise it with the
+// HLS_MAX_HEIGHT env var (e.g. 1080) on a bigger plan.
+const MAX_OUTPUT_HEIGHT = Number(process.env.HLS_MAX_HEIGHT) || 720;
+
+// Maximum frame rate of the output. High-fps sources (60/120 fps) multiply
+// the memory used by x264 lookahead and the decoder, so they are capped.
+const MAX_OUTPUT_FPS = Number(process.env.HLS_MAX_FPS) || 30;
+
+// FFmpeg/FFprobe threads. One thread keeps per-thread frame buffers minimal.
+const FFMPEG_THREADS = String(Number(process.env.FFMPEG_THREADS) || 1);
+
+// Only keep the tail of FFmpeg's stderr; it can grow without limit otherwise.
+const MAX_STDERR_CHARS = 8000;
+
+// Track running child processes so they can be killed on shutdown / timeout.
+const activeProcesses = new Set();
+
+const killActiveProcesses = () => {
+  for (const child of activeProcesses) {
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // process already exited
+    }
+  }
+  activeProcesses.clear();
+};
+
+const appendTail = (current, chunk) => {
+  const next = current + chunk;
+  return next.length > MAX_STDERR_CHARS
+    ? next.slice(next.length - MAX_STDERR_CHARS)
+    : next;
+};
+
 //video resolutions available to generate
 const AVAILABLE_QUALITIES = [
   //144p
@@ -91,7 +130,27 @@ const AVAILABLE_QUALITIES = [
 //determination of qualities that can be generated from
 // the uploaded video based on its height
 const getSupportedQualities = (videoHeight) => {
-  return AVAILABLE_QUALITIES.filter((quality) => quality.height <= videoHeight);
+  const limit = Math.min(Number(videoHeight) || 0, MAX_OUTPUT_HEIGHT);
+
+  const supported = AVAILABLE_QUALITIES.filter(
+    (quality) => quality.height <= limit
+  );
+
+  // Very small videos (e.g. 100p) still get the lowest rendition
+  // instead of failing with "No supported video qualities found".
+  return supported.length > 0 ? supported : [AVAILABLE_QUALITIES[0]];
+};
+
+// Drops any quality above the configured output limit (always keeps at least
+// the lowest one). Used for jobs that were queued before the limit existed.
+const limitQualitiesToMax = (qualities) => {
+  const limited = qualities.filter(
+    (quality) =>
+      (getQualityConfig(quality.quality ?? quality.name)?.height ?? 0) <=
+      MAX_OUTPUT_HEIGHT
+  );
+
+  return limited.length > 0 ? limited : qualities.slice(0, 1);
 };
 
 //get quality configuration using its name
@@ -111,15 +170,15 @@ const runFFprobe = (filePath) => {
       "json",
       // Return the result as JSON
 
-      "-show_format",
-      // Get general file information
-
-      "-show_streams",
-      // Get information about video/audio streams
+      "-show_entries",
+      "format=duration:stream=codec_type,width,height,r_frame_rate",
+      // Only the fields we need (keeps the JSON tiny)
 
       filePath,
       // The video file to analyze
     ]);
+
+    activeProcesses.add(ffprobe);
 
     let output = "";
     let errorOutput = "";
@@ -129,14 +188,17 @@ const runFFprobe = (filePath) => {
     });
 
     ffprobe.stderr.on("data", (data) => {
-      errorOutput += data.toString();
+      errorOutput = appendTail(errorOutput, data.toString());
     });
 
     ffprobe.on("error", (error) => {
+      activeProcesses.delete(ffprobe);
       reject(error);
     });
 
     ffprobe.on("close", (code) => {
+      activeProcesses.delete(ffprobe);
+
       if (code === 0) {
         try {
           const metadata = JSON.parse(output);
@@ -158,6 +220,14 @@ const runFFmpeg = (args, { duration, onProgress } = {}) => {
   return new Promise((resolve, reject) => {
     //console.log("FFmpeg args:", args);
     const ffmpeg = spawn("ffmpeg", [
+      "-hide_banner",
+      "-nostdin",
+      // Never wait on / buffer stdin
+
+      "-loglevel",
+      "error",
+      // Only errors on stderr (default logging is very verbose)
+
       "-progress",
       "pipe:1",
       // Send FFmpeg progress information through stdout
@@ -167,6 +237,8 @@ const runFFmpeg = (args, { duration, onProgress } = {}) => {
 
       ...args,
     ]);
+
+    activeProcesses.add(ffmpeg);
 
     let errorOutput = "";
     let progressOutput = "";
@@ -199,14 +271,17 @@ const runFFmpeg = (args, { duration, onProgress } = {}) => {
     });
 
     ffmpeg.stderr.on("data", (data) => {
-      errorOutput += data.toString();
+      errorOutput = appendTail(errorOutput, data.toString());
     });
 
     ffmpeg.on("error", (error) => {
+      activeProcesses.delete(ffmpeg);
       reject(error);
     });
 
     ffmpeg.on("close", (code) => {
+      activeProcesses.delete(ffmpeg);
+
       if (code === 0) {
         // Ensure the final progress reaches 100%
         onProgress?.(100);
@@ -311,15 +386,67 @@ const generateVideoQuality = async (
   const segmentPath = path.join(qualityDirectory, "segment%d.ts");
 
   try {
+    // Cap the frame rate only when the source is faster than the limit,
+    // so low-fps videos are never upsampled.
+    let filter = `scale=-2:${quality.height}:flags=bilinear`;
+
+    try {
+      const probe = await runFFprobe(inputPath);
+      const rate = probe.streams?.find(
+        (stream) => stream.codec_type === "video"
+      )?.r_frame_rate;
+
+      if (rate) {
+        const [num, den] = rate.split("/").map(Number);
+        const fps = den ? num / den : num;
+
+        if (Number.isFinite(fps) && fps > MAX_OUTPUT_FPS + 0.5) {
+          filter += `,fps=${MAX_OUTPUT_FPS}`;
+        }
+      }
+    } catch {
+      // Frame-rate detection is optional; encode without the cap.
+    }
+
+    // bufsize bounds the rate-control buffer (and therefore memory use).
+    const bufferSize = `${parseInt(quality.bitrate, 10) * 2}k`;
+
     await runFFmpeg(
       [
+        "-threads",
+        FFMPEG_THREADS,
+        //limits decoder threads (each thread keeps its own frame buffers)
+
+        "-filter_threads",
+        "1",
+
+        "-filter_complex_threads",
+        "1",
+
         "-i",
         inputPath,
         //Input video file
 
+        "-map",
+        "0:v:0",
+        //first video stream only
+
+        "-map",
+        "0:a:0?",
+        //first audio stream only, if one exists
+
+        "-sn",
+        "-dn",
+        //drop subtitles and data streams
+
         "-vf",
-        `scale=-2:${quality.height}`,
-        //resized the video
+        filter,
+        //resize (and cap frame rate if needed)
+
+        "-pix_fmt",
+        "yuv420p",
+        //8-bit 4:2:0 - HDR / 10-bit / 4:4:4 sources would use much more memory
+        // and are not playable everywhere
 
         "-c:v",
         "libx264",
@@ -328,9 +455,29 @@ const generateVideoQuality = async (
         "-preset",
         "veryfast",
 
+        "-threads",
+        FFMPEG_THREADS,
+        //encoder threads
+
+        "-rc-lookahead",
+        "10",
+        //default is 30 frames of lookahead; the biggest x264 memory consumer
+
+        "-refs",
+        "2",
+        "-bf",
+        "2",
+        //fewer reference frames / B-frames = fewer frames held in memory
+
         "-b:v",
         quality.bitrate,
         //sets the video bitrate
+
+        "-maxrate",
+        quality.bitrate,
+
+        "-bufsize",
+        bufferSize,
 
         "-c:a",
         "aac",
@@ -339,6 +486,16 @@ const generateVideoQuality = async (
         "-b:a",
         "128k",
         //sets audio bitrate to 128 kbps
+
+        "-ac",
+        "2",
+        //stereo (5.1 sources would otherwise be downmixed late)
+
+        "-max_muxing_queue_size",
+        "1024",
+
+        "-hls_playlist_type",
+        "vod",
 
         "-hls_time",
         "4",
@@ -478,9 +635,13 @@ const generateThumbnail = async (inputPath, outputPath) => {
 
     const duration = Number(metadata.format.duration);
 
-    const randomTimestamp = Math.random() * duration;
+    // Stay clear of the very end, where seeking can yield no frame at all.
+    const randomTimestamp = Math.random() * duration * 0.9;
 
     await runFFmpeg([
+      "-threads",
+      FFMPEG_THREADS,
+
       "-ss",
       randomTimestamp.toString(),
 
@@ -489,6 +650,13 @@ const generateThumbnail = async (inputPath, outputPath) => {
 
       "-frames:v",
       "1",
+
+      "-vf",
+      "scale='min(1280,iw)':-2",
+      // Thumbnails never need to be larger than 1280px wide
+
+      "-q:v",
+      "3",
 
       "-update",
       "1",
@@ -652,6 +820,8 @@ export {
   generateThumbnail,
   runFFprobe,
   getSupportedQualities,
+  limitQualitiesToMax,
+  killActiveProcesses,
   getQualityConfig,
   isQualityComplete,
   areQualitiesComplete,

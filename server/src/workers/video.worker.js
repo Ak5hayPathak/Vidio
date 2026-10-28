@@ -13,6 +13,8 @@ import {
 import {
   getQualityConfig,
   isQualityComplete,
+  limitQualitiesToMax,
+  killActiveProcesses,
 } from "../utils/videoProcessor.js";
 import {
   deleteOriginalVideoFromB2,
@@ -199,7 +201,11 @@ const videoWorker = new Worker(
       const needsProcessing = video.processingStatus !== "ready" || !videoFile;
 
       // Read the latest quality checkpoints from the job data.
-      const qualityStatuses = normalizeQualityStatuses(job.data.qualities);
+      // Drop renditions above the memory-safe limit (also covers jobs that
+      // were queued before the limit existed).
+      const qualityStatuses = limitQualitiesToMax(
+        normalizeQualityStatuses(job.data.qualities)
+      );
 
       // Keep complete FFmpeg configurations separate from quality statuses.
       const suppliedQualityConfigs = job.data.qualityConfigs;
@@ -346,20 +352,38 @@ const videoWorker = new Worker(
 
           const qualityConfig = qualityConfigs[index];
 
+          // Progress callbacks are synchronous and fire many times per second.
+          // Throttle them and always catch errors: an unawaited rejected
+          // promise would crash the whole worker process.
+          let lastPublishedProgress = -1;
+          let lastPublishedStage = "";
+
           const result = await processAndUploadQuality(
             videoFileLocalPath,
             videoId,
             qualityConfig,
-            async (progressData) => {
+            (progressData) => {
               const qualityProgress = progressData.progress ?? 0;
 
               const overallProgress =
                 10 + ((index + qualityProgress / 100) / totalQualities) * 80;
 
-              await publishProgress(mongoVideoId, userId, {
+              if (
+                progressData.stage === lastPublishedStage &&
+                overallProgress - lastPublishedProgress < 1
+              ) {
+                return;
+              }
+
+              lastPublishedProgress = overallProgress;
+              lastPublishedStage = progressData.stage;
+
+              publishProgress(mongoVideoId, userId, {
                 progress: overallProgress,
                 stage: progressData.stage,
                 quality: qualityName,
+              }).catch((error) => {
+                console.error("Failed to publish progress:", error.message);
               });
             },
             5,
@@ -573,6 +597,10 @@ const videoWorker = new Worker(
   {
     connection: redisConnection,
     concurrency: 1,
+    // Encoding on a shared CPU is slow; keep the job lock long enough that
+    // BullMQ does not mark a healthy job as stalled and start a second one.
+    lockDuration: 5 * 60 * 1000,
+    maxStalledCount: 2,
   }
 );
 
@@ -593,6 +621,9 @@ const gracefulShutdown = async (signal) => {
   isShuttingDown = true;
 
   console.log(`\n${signal} received. Shutting down worker...`);
+
+  // Stop any running FFmpeg/FFprobe so they don't outlive the worker.
+  killActiveProcesses();
 
   try {
     await videoWorker.close();
