@@ -14,7 +14,7 @@ const videoProcessingQueue = new Queue("video-processing", {
     },
 
     removeOnComplete: true, //Removes successfully completed jobs from Redis
-    removeOnFail: true,
+    removeOnFail: false,
   },
 });
 

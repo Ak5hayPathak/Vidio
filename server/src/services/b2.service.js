@@ -15,7 +15,7 @@ import { APIError } from "../utils/APIError.js";
 
 const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 
-const MAX_UPLOAD_ATTEMPTS = 5;
+const MAX_UPLOAD_ATTEMPTS = 3;
 const INITIAL_RETRY_DELAY = 1000;
 const MAX_RETRY_DELAY = 30000;
 // Memory-conscious multipart settings: at most QUEUE_SIZE * PART_SIZE bytes

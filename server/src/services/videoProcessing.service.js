@@ -1,11 +1,9 @@
-import {
-  processVideo,
-  generateVideoQuality,
-  generateThumbnail,
-  runFFprobe,
-  getQualityConfig,
-  createMasterPlaylist,
-} from "../utils/videoProcessor.js";
+import { processVideo } from "../utils/video-processing/videoProcessor.js";
+import { generateVideoQuality } from "../utils/video-processing/processing-utils/qualityGenerator.js";
+import { generateThumbnail } from "../utils/video-processing/processing-utils/thumbnail.js";
+import { runFFprobe } from "../utils/video-processing/processing-utils/ffprobe.js";
+import { getQualityConfig } from "../utils/video-processing/processing-utils/qualityConfig.js";
+import { createMasterPlaylist } from "../utils/video-processing/processing-utils/playlist.js";
 
 import {
   uploadDirectoryToB2,
@@ -71,10 +69,11 @@ const processAndUploadQuality = async (
   const qualityName =
     typeof quality === "string" ? quality : (quality?.name ?? quality?.quality);
 
-  const qualityConfig =
-    quality?.height && quality?.width && quality?.bitrate
-      ? quality
-      : getQualityConfig(qualityName);
+  if (!qualityName || typeof qualityName !== "string") {
+    throw new Error("A valid video quality name is required.");
+  }
+
+  const qualityConfig = getQualityConfig(qualityName);
 
   if (!qualityConfig) {
     throw new Error(`Unknown quality configuration: ${qualityName}`);
@@ -115,9 +114,10 @@ const processAndUploadQuality = async (
       );
 
       // Generate the quality, or reuse its complete local output.
+      // generateVideoQuality expects a quality name, not a configuration object.
       await generateVideoQuality(
         inputPath,
-        qualityConfig,
+        qualityName,
         videoId,
         duration,
         (progress) => {
@@ -192,16 +192,14 @@ const processAndUploadMasterPlaylist = async (
 
   // Accept quality configurations or job status objects.
   const qualityConfigs = qualities.map((quality) => {
-    if (
-      quality?.name &&
-      quality?.height &&
-      quality?.width &&
-      quality?.bandwidth
-    ) {
-      return quality;
-    }
+    const qualityName =
+      typeof quality === "string"
+        ? quality
+        : (quality?.name ?? quality?.quality);
 
-    const qualityName = quality?.quality ?? quality?.name;
+    if (!qualityName || typeof qualityName !== "string") {
+      throw new Error("A valid video quality name is required.");
+    }
 
     const config = getQualityConfig(qualityName);
 
@@ -209,8 +207,17 @@ const processAndUploadMasterPlaylist = async (
       throw new Error(`Unknown quality configuration: ${qualityName}`);
     }
 
-    return config;
+    return {
+      name: qualityName,
+      ...config,
+    };
   });
+
+  const uniqueNames = new Set(qualityConfigs.map((quality) => quality.name));
+
+  if (uniqueNames.size !== qualityConfigs.length) {
+    throw new Error("Duplicate video qualities are not allowed.");
+  }
 
   const masterPlaylistPath = createMasterPlaylist(qualityConfigs, videoId);
 
