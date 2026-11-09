@@ -717,9 +717,9 @@ const streamVideo = asyncHandler(async (req, res) => {
 const streamHLSFile = asyncHandler(async (req, res) => {
   const { hlsPath } = req.params;
   //hlsPath: [ '37285b97-6bd8-4b55-9b8e-9dd786371785', '144p', 'playlist.m3u8' ]
-  console.log("HLS params:", req.params);
-  console.log("Stream token:", req.stream);
-  console.log("B2 key:", `videos/${hlsPath.join("/")}`);
+  // console.log("HLS params:", req.params);
+  // console.log("Stream token:", req.stream);
+  // console.log("B2 key:", `videos/${hlsPath.join("/")}`);
 
   if (!hlsPath) {
     throw new APIError(400, "hlsPath is required!");

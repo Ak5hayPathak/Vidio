@@ -37,19 +37,17 @@ const createMasterPlaylist = (qualities, videoId) => {
 
   fs.mkdirSync(outputDirectory, { recursive: true });
 
-  const playlistContent =
-    [
-      "#EXTM3U",
-      "#EXT-X-VERSION:3",
-      ...normalizedQualities.flatMap((quality) => [
-        `#EXT-X-STREAM-INF:BANDWIDTH=${quality.bandwidth},RESOLUTION=${quality.width}x${quality.height}`,
-        `${quality.name}/playlist.m3u8`,
-      ]),
-    ].join("\n") + "\n";
+  let playlist = "#EXTM3U\n#EXT-X-VERSION:3\n";
+
+  for (const quality of normalizedQualities) {
+    playlist += `#EXT-X-STREAM-INF:BANDWIDTH=${quality.bandwidth},`;
+    playlist += `RESOLUTION=${quality.width}x${quality.height}\n`;
+    playlist += `${videoId}/${quality.name}/playlist.m3u8\n`;
+  }
 
   const masterPlaylistPath = path.join(outputDirectory, "master.m3u8");
 
-  fs.writeFileSync(masterPlaylistPath, playlistContent);
+  fs.writeFileSync(masterPlaylistPath, playlist);
 
   return masterPlaylistPath;
 };
