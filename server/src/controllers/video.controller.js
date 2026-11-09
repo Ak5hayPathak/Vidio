@@ -20,35 +20,49 @@ import {
   deleteVideoDirectoryFromB2,
   getFileFromB2,
 } from "../services/b2.service.js";
-import { runFFprobe, getSupportedQualities } from "../utils/videoProcessor.js";
+import { runFFprobe } from "../utils/video-processing/processing-utils/ffprobe.js";
+import { getSupportedQualities } from "../utils/video-processing/processing-utils/qualityConfig.js";
 import { generateStreamToken } from "../utils/streamToken.js";
+
+// Drop-in replacement for the publishAVideo handler in your video controller.
+// Imports are unchanged (asyncHandler, APIError, APIResponse, Video, fs, path,
+// crypto, uploadFileToB2, deleteOriginalVideoFromB2, runFFprobe,
+// getSupportedQualities, videoProcessingQueue).
+
+// Longest video accepted, in seconds. Encoding on a free shared CPU is very
+// slow, so very long videos would run for hours. Override with the
+// MAX_VIDEO_DURATION_SECONDS env var (default: 2 hours).
+const MAX_VIDEO_DURATION_SECONDS =
+  Number(process.env.MAX_VIDEO_DURATION_SECONDS) || 2 * 60 * 60;
+
+// Safely remove temporary files uploaded through Multer.
+const cleanupUploadedFiles = async (...filePaths) => {
+  const uniquePaths = [...new Set(filePaths.filter(Boolean))];
+
+  await Promise.allSettled(
+    uniquePaths.map(async (filePath) => {
+      try {
+        await fs.unlink(filePath);
+      } catch (error) {
+        if (error.code !== "ENOENT") {
+          console.error(
+            `Failed to remove temporary file: ${filePath}`,
+            error.message
+          );
+        }
+      }
+    })
+  );
+};
 
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description = "", tags = [] } = req.body;
-
-  if (!title?.trim()) {
-    throw new APIError(400, "Video title is required!");
-  }
 
   const videoFile = req.files?.videoFile?.[0];
   const videoFileLocalPath = videoFile?.path;
   const thumbnailLocalPath = req.files?.thumbnail?.[0]?.path;
 
-  if (!videoFileLocalPath) {
-    throw new APIError(400, "Video File is required!");
-  }
-
   const userId = req.user?._id;
-
-  if (!userId) {
-    await Promise.allSettled(
-      [videoFileLocalPath, thumbnailLocalPath]
-        .filter(Boolean)
-        .map((filePath) => fs.unlink(filePath))
-    );
-
-    throw new APIError(401, "Unauthorized Request!");
-  }
 
   const videoId = crypto.randomUUID();
 
@@ -56,22 +70,29 @@ const publishAVideo = asyncHandler(async (req, res) => {
   let originalKey;
 
   try {
-    // 1. Determine a safe file extension.
-    const suppliedExtension = path
-      .extname(videoFile.originalname || "")
-      .toLowerCase();
+    // 1. Validate request.
+    if (!title?.trim()) {
+      throw new APIError(400, "Video title is required!");
+    }
 
-    const extension = /^\.[a-z0-9]{1,10}$/.test(suppliedExtension)
-      ? suppliedExtension
-      : ".mp4";
+    if (!videoFileLocalPath) {
+      throw new APIError(400, "Video File is required!");
+    }
 
-    // 2. Upload the original to durable B2 storage.
-    originalKey = `originals/${videoId}/original${extension}`;
+    if (!userId) {
+      throw new APIError(401, "Unauthorized Request!");
+    }
 
-    await uploadFileToB2(videoFileLocalPath, originalKey);
+    // 2. Validate the uploaded video using FFprobe.
+    let metadata;
 
-    // 3. Extract metadata before queuing the job.
-    const metadata = await runFFprobe(videoFileLocalPath);
+    try {
+      metadata = await runFFprobe(videoFileLocalPath);
+    } catch (error) {
+      console.error("FFprobe could not read the upload:", error.message);
+
+      throw new APIError(400, "The uploaded file is not a valid video.");
+    }
 
     const videoStream = metadata.streams?.find(
       (stream) => stream.codec_type === "video"
@@ -87,30 +108,53 @@ const publishAVideo = asyncHandler(async (req, res) => {
       throw new APIError(400, "Unable to determine video duration.");
     }
 
-    // Keep complete FFmpeg configurations separate from processing statuses.
-    const qualityConfigs = getSupportedQualities(videoStream.height);
+    if (duration > MAX_VIDEO_DURATION_SECONDS) {
+      throw new APIError(
+        400,
+        `Video is too long. Maximum duration is ${Math.floor(
+          MAX_VIDEO_DURATION_SECONDS / 60
+        )} minutes.`
+      );
+    }
 
-    if (!qualityConfigs.length) {
+    // 3. Determine supported qualities.
+    const supportedQualities = getSupportedQualities(videoStream.height);
+
+    if (!supportedQualities.length) {
       throw new APIError(400, "No supported video qualities found.");
     }
 
-    // Initialize an independent checkpoint for each required quality.
-    const qualities = qualityConfigs.map(({ name }) => ({
-      quality: name,
+    const qualities = supportedQualities.map((quality) => ({
+      quality,
       status: "pending",
     }));
 
-    // 4. Create the processing record.
+    // 4. Determine a safe file extension.
+    const suppliedExtension = path
+      .extname(videoFile.originalname || "")
+      .toLowerCase();
+
+    const extension = /^\.[a-z0-9]{1,10}$/.test(suppliedExtension)
+      ? suppliedExtension
+      : ".mp4";
+
+    // 5. Upload the original video to B2.
+    originalKey = `originals/${videoId}/original${extension}`;
+
+    await uploadFileToB2(videoFileLocalPath, originalKey);
+
+    // 6. Create the video document.
     video = await Video.create({
       title: title.trim(),
       description,
       tags,
       owner: userId,
+      duration,
       processingStatus: "processing",
       isPublished: false,
     });
 
-    // 5. Queue metadata and quality checkpoints for the worker.
+    // 7. Queue the video-processing job.
     await videoProcessingQueue.add(
       "process-video",
       {
@@ -119,37 +163,47 @@ const publishAVideo = asyncHandler(async (req, res) => {
         originalKey,
         thumbnailLocalPath,
         username: req.user.username,
+
+        // Temporarily retained for compatibility with the current worker.
         userId: userId.toString(),
-        qualities,
-        qualityConfigs,
         duration,
+
+        qualities,
       },
       {
         removeOnComplete: true,
         removeOnFail: false,
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 30000,
+        },
       }
     );
   } catch (error) {
     console.error("Failed to upload video or queue processing:", error);
 
+    // Remove the database record if it was created.
     if (video) {
       await Video.deleteOne({ _id: video._id }).catch((cleanupError) => {
-        console.error("Failed to remove video record:", cleanupError);
+        console.error("Failed to remove video record:", cleanupError.message);
       });
     }
 
+    // Remove the original from B2 if it was uploaded.
     if (originalKey) {
       await deleteOriginalVideoFromB2(originalKey).catch((cleanupError) => {
-        console.error("Failed to remove original from B2:", cleanupError);
+        console.error(
+          "Failed to remove original from B2:",
+          cleanupError.message
+        );
       });
     }
 
-    await Promise.allSettled(
-      [videoFileLocalPath, thumbnailLocalPath]
-        .filter(Boolean)
-        .map((filePath) => fs.unlink(filePath))
-    );
+    // Clean up all local uploads.
+    await cleanupUploadedFiles(videoFileLocalPath, thumbnailLocalPath);
 
+    // Preserve validation and authorization errors.
     if (error instanceof APIError) {
       throw error;
     }
@@ -160,14 +214,10 @@ const publishAVideo = asyncHandler(async (req, res) => {
     );
   }
 
-  // 6. The original is safely stored in B2 and the job is queued.
-  await fs.unlink(videoFileLocalPath).catch((error) => {
-    if (error.code !== "ENOENT") {
-      console.error("Failed to remove local original:", error.message);
-    }
-  });
+  // 8. The original is safely stored in B2 and the job is queued.
+  // The worker only needs the local thumbnail at this point.
+  await cleanupUploadedFiles(videoFileLocalPath);
 
-  // Do not delete thumbnailLocalPath; the worker still needs it.
   return res
     .status(201)
     .json(
@@ -667,6 +717,9 @@ const streamVideo = asyncHandler(async (req, res) => {
 const streamHLSFile = asyncHandler(async (req, res) => {
   const { hlsPath } = req.params;
   //hlsPath: [ '37285b97-6bd8-4b55-9b8e-9dd786371785', '144p', 'playlist.m3u8' ]
+  console.log("HLS params:", req.params);
+  console.log("Stream token:", req.stream);
+  console.log("B2 key:", `videos/${hlsPath.join("/")}`);
 
   if (!hlsPath) {
     throw new APIError(400, "hlsPath is required!");
