@@ -16,4 +16,24 @@ const cleanupVideoOutput = (videoId) => {
   });
 };
 
-export { cleanupVideoOutput };
+// Safely remove temporary files uploaded through Multer.
+const cleanupUploadedFiles = async (...filePaths) => {
+  const uniquePaths = [...new Set(filePaths.filter(Boolean))];
+
+  await Promise.allSettled(
+    uniquePaths.map(async (filePath) => {
+      try {
+        await fs.unlink(filePath);
+      } catch (error) {
+        if (error.code !== "ENOENT") {
+          console.error(
+            `Failed to remove temporary file: ${filePath}`,
+            error.message
+          );
+        }
+      }
+    })
+  );
+};
+
+export { cleanupVideoOutput, cleanupUploadedFiles };

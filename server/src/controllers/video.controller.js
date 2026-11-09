@@ -23,37 +23,8 @@ import {
 import { runFFprobe } from "../utils/video-processing/processing-utils/ffprobe.js";
 import { getSupportedQualities } from "../utils/video-processing/processing-utils/qualityConfig.js";
 import { generateStreamToken } from "../utils/streamToken.js";
-
-// Drop-in replacement for the publishAVideo handler in your video controller.
-// Imports are unchanged (asyncHandler, APIError, APIResponse, Video, fs, path,
-// crypto, uploadFileToB2, deleteOriginalVideoFromB2, runFFprobe,
-// getSupportedQualities, videoProcessingQueue).
-
-// Longest video accepted, in seconds. Encoding on a free shared CPU is very
-// slow, so very long videos would run for hours. Override with the
-// MAX_VIDEO_DURATION_SECONDS env var (default: 2 hours).
-const MAX_VIDEO_DURATION_SECONDS =
-  Number(process.env.MAX_VIDEO_DURATION_SECONDS) || 2 * 60 * 60;
-
-// Safely remove temporary files uploaded through Multer.
-const cleanupUploadedFiles = async (...filePaths) => {
-  const uniquePaths = [...new Set(filePaths.filter(Boolean))];
-
-  await Promise.allSettled(
-    uniquePaths.map(async (filePath) => {
-      try {
-        await fs.unlink(filePath);
-      } catch (error) {
-        if (error.code !== "ENOENT") {
-          console.error(
-            `Failed to remove temporary file: ${filePath}`,
-            error.message
-          );
-        }
-      }
-    })
-  );
-};
+import { MAX_VIDEO_DURATION_SECONDS } from "../utils/video-processing/processing-utils/config.js";
+import { cleanupUploadedFiles } from "../utils/video-processing/processing-utils/cleanup.js";
 
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description = "", tags = [] } = req.body;

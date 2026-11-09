@@ -30,6 +30,12 @@ const FFMPEG_THREADS =
 // Only keeping the tail of FFmpeg's stderr
 const MAX_STDERR_CHARS = 8000;
 
+// Longest video accepted, in seconds. Encoding on a free shared CPU is very
+// slow, so very long videos would run for hours. Override with the
+// MAX_VIDEO_DURATION_SECONDS env var (default: 2 hours).
+const MAX_VIDEO_DURATION_SECONDS =
+  Number(process.env.MAX_VIDEO_DURATION_SECONDS) || 2 * 60 * 60;
+
 //Qualities supported by the platform
 const AVAILABLE_QUALITIES = {
   "144p": {
@@ -95,4 +101,5 @@ export {
   FFMPEG_THREADS,
   MAX_STDERR_CHARS,
   AVAILABLE_QUALITIES,
+  MAX_VIDEO_DURATION_SECONDS,
 };
